@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs
+ * Easy WP thumbs v1.01
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.5.0 
  * 
  * @author Luca Montanari
@@ -11,7 +11,7 @@
 if(! defined('EWPT_VER')  ) { 
 
  
-define ('EWPT_VER', '1.0'); // script version
+define ('EWPT_VER', '1.01'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -1141,6 +1141,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		
 		// get the correct path/url
 		$img_src = $this->img_id_to_path($img_src);
+		if(!$img_src) {return false;}
 		
 		// setup mime type and filenames
 		$this->manage_filename($img_src); 
