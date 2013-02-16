@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.01
+ * Easy WP thumbs v1.02
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.5.0 
  * 
  * @author Luca Montanari
@@ -119,7 +119,7 @@ function ewpt_standard_caching_headers() {
 
 	header('Last-Modified: ' . $gmdate_modified);
 	header('Cache-Control: public');
-	header('Expires: ' . $gmdate_expires);	
+	header('Expires: ' . $gmdate_expires);
 }
 
 
@@ -138,6 +138,15 @@ if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 		class ewpt_editor_extension extends WP_Image_Editor_Imagick {
 			
 			/**
+			 * Given the mime-type returns the last parameter for the imagick functions 
+			 */
+			private function ewpt_mime_to_ext($mime) {
+				$arr = explode('/', $mime);
+				return end($arr);	
+			}
+			
+			
+			/**
 			 * Manage the resize and/or crop using the Timthumb v2.8.10 structure with imagick functions
 			 * © Luca Montanari
 			 *
@@ -149,6 +158,7 @@ if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 			 * @param string $canvas_color canvas background color 
 			 */
 			public function ewpt_tt_management($width, $height, $rs, $a, $mime, $canvas_color) {
+
 				// get standard input properties		
 				$new_width =  (int) abs ($width);
 				$new_height = (int) abs ($height);
@@ -176,83 +186,74 @@ if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 				}
 				else {$canvas_color = 'transparent';}
 				
-
 				// stretch the image to the size
 				if($zoom_crop == 0) {
-					$this->image->resizeImage($new_width, $new_height, true, 0);	
+					$this->image->resizeimage($new_width, $new_height, imagick::FILTER_POINT, 0, FALSE ); 
 				}
 				
 				// only scale image
-				if ($zoom_crop == 3 || $zoom_crop == 2) {
-					$this->image->scaleImage($new_width, $new_height);
+				if ($zoom_crop == 3) {
+					$this->image->resizeimage($new_width, $new_height, imagick::FILTER_POINT, 0, true);	
 				}
 				
 				// scale and add borders
 				if($zoom_crop == 2) {
-					// existing image resource
-					$image = $this->image;
-
-					$canvas = new Imagick();
-					$canvas->newImage($new_width, $new_height, $canvas_color /*, TODO extension */);
-					 
-					// Get the image geometry
-					$geometry = $im->getImageGeometry();
-
-					$x = ( $width - $geometry['width'] ) / 2;
-					$y = ( $height - $geometry['height'] ) / 2;
-					 
-					$canvas->compositeImage($image, imagick::COMPOSITE_OVER, $x, $y );
-					$this->image = $canvas;	
+					//scale 
+					$ratio = min($new_width/$width, $new_height/$height);
+					$_new_w = round($width * $ratio);
+					$_new_h = round($height * $ratio); 
+					$this->image->resizeimage($new_width, $new_height, imagick::FILTER_POINT, 0, true);
+					
+					if($_new_w == $new_width) {$border_w = 0;}
+					else {$border_w = ceil(($new_width - $_new_w) / 2);}
+					
+					if($_new_h == $new_height) {$border_h = 0;}
+					else {$border_h = ceil(($new_height - $_new_h) / 2);}
+					
+					$this->image->borderImage($canvas_color, $border_w, $border_h);
 				}
 				
 				// scale and crop
 				else {
 					//scale 
 					$ratio = max($new_width/$width, $new_height/$height);
-					$_new_w = round($width * $ratio);
-					$_new_h = round($height * $ratio); 
-					$this->image->resizeImage($_new_w, $_new_h, true, 0);
-					
-					// coordinates to cut
-					$src_x = $src_y = 0;
-					$src_w = $width;
-					$src_h = $height;
+					$_new_w = ceil($width * $ratio);
+					$_new_h = ceil($height * $ratio); 
+					$this->image->scaleimage($_new_w, $_new_h, true);
 
-					$cmp_x = $_new_w / $new_width;
-					$cmp_y = $_new_h / $new_height;
-		
-					// calculate x or y coordinate and width or height of source
-					if ($cmp_x > $cmp_y) {
-						$src_x = round (($width - ($width / $cmp_x * $cmp_y)) / 2);
-		
-					} else if ($cmp_y > $cmp_x) {
-						$src_y = round (($height - ($height / $cmp_y * $cmp_x)) / 2);
-					}
-		
+
+					// coordinates to cut from center
+					if($_new_w == $new_width) {$src_x = 0;}
+					else {$src_x = floor(($_new_w - $new_width) / 2);}
+					
+					if($_new_h == $new_height) {$src_y = 0;}
+					else {$src_y = floor(($_new_h - $new_height) / 2);}
+					
 					// positional cropping!
 					if ($align) {
 						if (strpos ($align, 't') !== false) {
 							$src_y = 0;
 						}
 						if (strpos ($align, 'b') !== false) {
-							$src_y = $height - $src_h;
+							$src_y = $_new_h - $new_height;
 						}
 						if (strpos ($align, 'l') !== false) {
 							$src_x = 0;
 						}
 						if (strpos ($align, 'r') !== false) {
-							$src_x = $width - $src_w;
+							$src_x = $_new_w - $new_width;
 						}
 					}
-					
-					$this->crop($src_x, $src_y, $width, $height);
+
+					$this->crop($src_x, $src_y, $new_width, $new_height);
 				}
+
 
 				$this->update_size();
 				
 				return true;
 			}
-			
+
 			
 			/**
 			 * Apply efects to the image
@@ -274,8 +275,10 @@ if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 			/**
 			 * Returns stream of current image.
 			 */
-			public function ewpt_img_contents($mime = false) {
-				return $this->image->getImageBlob();	
+			public function ewpt_img_contents($mime) {
+				$this->image->setImageFormat($this->ewpt_mime_to_ext($mime));
+				echo $this->image->getImageBlob();
+				return true;
 			}
 		}
 	}
@@ -1185,7 +1188,6 @@ class easy_wp_thumbs extends ewpt_connect {
 		if( (float)substr(get_bloginfo('version'), 0, 3) < 3.5) {
 			$this->editor = new ewpt_old_wp_img_editor($img_src);
 		} else {
-			//$this->editor = wp_get_image_editor($img_src);
 			$this->editor = new ewpt_editor_extension($img_src);
 			$this->editor->load();
 		}	
@@ -1394,6 +1396,7 @@ class easy_wp_thumbs extends ewpt_connect {
 
 		// timthumb like management
 		$this->editor->ewpt_tt_management($width, $height, $this->params['rs'], $this->params['a'], $this->mime, $this->params['cc']);
+
 		return true;
 	}
 	
@@ -1440,18 +1443,8 @@ class easy_wp_thumbs extends ewpt_connect {
 			ewpt_manage_browser_cache($cache_fullpath, $method, $img_contents);
 
 			if($img_contents === false) {
-				if($this->mime == 'image/png') { // avoid png issues on direct call
-					$this->load_image($cache_fullpath);
-					return $this->ewpt_stream_img();
-				} 
-				else {
-					switch ($this->mime) {
-						case 'image/png': header( 'Content-Type: image/png' ); break;
-						case 'image/gif': header( 'Content-Type: image/gif' ); break;
-						default			: header( 'Content-Type: image/jpeg'); break;
-					}	
-					require_once($cache_fullpath);
-				}
+				$this->load_image($cache_fullpath);
+				return $this->ewpt_stream_img();
 			} 
 			
 			// display image resource that has just been created
