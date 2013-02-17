@@ -11,16 +11,19 @@ Supports the WP 3.5 WP_Image_Editor class, using Imagick where available
 
 ## How to use
 
-	1 - include the script in the main plugin/theme file
+1 - include the script in the main plugin/theme file
 
-	2 - place the "ewpt_wpf_form()" function in an admin page to let users check the script status and, eventually, insert the FTP/SSH credentials
+2 - place the "ewpt_wpf_form()" function in an admin page to let users check the script status and, eventually, insert the FTP/SSH credentials
 
-	3 - create  thumbnails using the "easy_wp_thumb()" function or calling the script directly 
+3 - create  thumbnails using the "easy_wp_thumb()" function or calling the script directly 
 
 
 ## Documentation
 
 To know the parameters and see live demos visis [this page](http://www.projects.lcweb.it/easy-wp-thumbs) 
+
+
+* * *
  
 ### Notes
 
