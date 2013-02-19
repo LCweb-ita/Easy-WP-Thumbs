@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.02
+ * Easy WP thumbs v1.03
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.5.0 
  * 
  * @author Luca Montanari
@@ -946,7 +946,7 @@ class ewpt_connect {
 	
 	// base "wp uploads" directory
 	public $basedir;
-	
+
 	// ewpt cache directory
 	public $cache_dir;
 	
@@ -965,9 +965,9 @@ class ewpt_connect {
 		
 		// set the directories
 		$upload_dirs = wp_upload_dir();
-		$this->basedir 		= $upload_dirs['basedir'];
-		$this->cache_dir 	= $upload_dirs['basedir'] . '/ewpt_cache';
-		$this->cache_url	= $upload_dirs['baseurl'] . '/ewpt_cache';
+		$this->basedir = $upload_dirs['basedir'];		
+		$this->cache_dir = $this->basedir . '/ewpt_cache';
+		$this->cache_url = $upload_dirs['baseurl'] . '/ewpt_cache';
 		
 		if($debug_flag) {$this->debug = $debug_flag;}
 		
@@ -979,6 +979,7 @@ class ewpt_connect {
 			
 		return true;	
 	}
+
 	
 	
 	/**
@@ -1227,7 +1228,7 @@ class easy_wp_thumbs extends ewpt_connect {
 					if($this->params['rs'] > 3) {$this->params['rs'] = 1;}
 					
 					// if there is no alignment - set it to the center
-					$positions = array('tl','tc','tr','l','c','r','bl','bc','br');
+					$positions = array('tl','t','tr','l','c','r','bl','b','br');
 					if(in_array($this->params['a'], $positions) === false) {$this->params['a'] = 'c';}
 				}
 			}
@@ -1391,8 +1392,18 @@ class easy_wp_thumbs extends ewpt_connect {
 		$height = $this->params['h'];
 		
 		// check and set sizes
-		if(!$width) {$width = $size['width'];}
-		if(!$height) {$height = $size['height'];}
+		if(!$width && !$height) {
+			$width = $size['width'];
+			$height = $size['height'];
+		}
+		
+		// generate new width or height if not provided
+		if($width && !$height) {
+			$height = floor ($size['height'] * ($width / $size['width']));
+		}
+		elseif(!$width && $height) {
+			$width = floor ($size['width'] * ($height / $size['height']));
+		}
 
 		// timthumb like management
 		$this->editor->ewpt_tt_management($width, $height, $this->params['rs'], $this->params['a'], $this->mime, $this->params['cc']);
@@ -1487,8 +1498,7 @@ function easy_wp_thumb($img_src, $width = false, $height = false, $quality = 80,
 
 // remote thumb creation - timthumb-like solution
 if(eregi("easy_wp_thumbs.php", $_SERVER['REQUEST_URI']) && isset($_REQUEST['src']) ) {
-	if(is_multisite()) {die("Easy WP thumbs - remote tumb creation - doesn't support WPMU for now");}
-	ob_end_clean();
+	if (ob_get_level()) {ob_end_clean();}
 	
 	// check for external leechers
 	ewpt_block_external_leechers();

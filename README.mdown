@@ -23,11 +23,6 @@ Supports the WP 3.5 WP_Image_Editor class, using Imagick where available
 To know the parameters and see live demos visis [this page](http://www.projects.lcweb.it/easy-wp-thumbs) 
 
 
-* * *
- 
-### Notes
-
-Currently is not possible to use the remote thumbnail creation on WP MU
 
 
 * * *
