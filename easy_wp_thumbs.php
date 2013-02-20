@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.03
+ * Easy WP thumbs v1.04
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.5.0 
  * 
  * @author Luca Montanari
@@ -980,8 +980,7 @@ class ewpt_connect {
 		return true;	
 	}
 
-	
-	
+
 	/**
 	  * Check if the ewpt cache directory exists
 	  */
@@ -1295,11 +1294,11 @@ class easy_wp_thumbs extends ewpt_connect {
 		$fullname = end($path_arr);
 		
 		// remove the extension
-		$pos = strrpos($fullname, '.');
-		$img_name = substr($fullname, 0, $pos);
+		$pos = strrpos($img_src, '.');
+		$img_name = substr($img_src, 0, $pos);
 		
 		// get mime type
-		$this->mime = $this->ewpt_mime_type($fullname, $pos);
+		$this->mime = $this->ewpt_mime_type($img_src, $pos);
 		
 		$cache_filename = $this->cache_filename($img_name);
 		
