@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.04
+ * Easy WP thumbs v1.05
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.5.0 
  * 
  * @author Luca Montanari
@@ -906,7 +906,7 @@ function ewpt_wpf_check() {
 	
 	// chache dir creation
 	if(!file_exists($ewpt->cache_dir)) {
-		if( !$wp_filesystem->mkdir($ewpt->cache_dir, 0775) ) {
+		if( !$wp_filesystem->mkdir($ewpt->cache_dir, FS_CHMOD_DIR) ) {
 			die( __('Error creating the cache directory') );	
 		}
 	}
@@ -1020,7 +1020,7 @@ class ewpt_connect {
 			
 			// if method = direct create it and check again
 			if($this->get_method() == 'direct') {
-				mkdir($this->cache_dir, 0775);	
+				mkdir($this->cache_dir, FS_CHMOD_DIR);	
 				return $this->is_ready();
 			}
 			
@@ -1144,7 +1144,12 @@ class easy_wp_thumbs extends ewpt_connect {
 		
 		// get the correct path/url
 		$img_src = $this->img_id_to_path($img_src);
-		if(!$img_src) {return false;}
+		if(!filter_var($img_src, FILTER_VALIDATE_URL)) {
+			if(!$img_src || !file_exists($img_src)) {
+				$this->errors[] = __('WP image not found or invalid image path');
+				return false;
+			}	
+		}
 		
 		// setup mime type and filenames
 		$this->manage_filename($img_src); 
@@ -1258,6 +1263,34 @@ class easy_wp_thumbs extends ewpt_connect {
 	}
 	
 	
+
+	/**
+	  * Given the $img_src - set the cache filename and mime type 
+	  * @param string $img_src image path/url
+	  */
+	private function manage_filename($img_src) {
+
+		// remove the extension
+		$pos = strrpos($img_src, '.');
+		$clean_path = substr($img_src, 0, $pos);
+		
+		// get mime type
+		$this->mime = $this->ewpt_mime_type($img_src, $pos);
+		
+		$cache_filename = $this->cache_filename($clean_path);
+		
+		// extension 
+		switch ( $this->mime ) {
+			case 'image/png': $ext = '.png'; break;
+			case 'image/gif': $ext = '.gif'; break;
+			default			: $ext = '.jpg'; break;
+		}	
+		
+		$this->cache_img_name = $cache_filename . $ext;
+		return $this->cache_img_name;
+	}
+	
+	
 	/**
 	  * Given the $img_src - get the mime type 
 	  *
@@ -1266,7 +1299,6 @@ class easy_wp_thumbs extends ewpt_connect {
 	  */
 	private function ewpt_mime_type($img_name, $pos) {
 		$ext = substr($img_name, ($pos + 1));
-
 		$mime_types = array(
 			'jpg|jpeg|jpe' => 'image/jpeg',
 			'gif' => 'image/gif',
@@ -1280,37 +1312,6 @@ class easy_wp_thumbs extends ewpt_connect {
 			}
 		}
 		return false;
-	}
-	
-	
-	/**
-	  * Given the $img_src - set the cache filename and mime type 
-	  * @param string $img_src image path/url
-	  */
-	private function manage_filename($img_src) {
-
-		// extract the latest path element
-		$path_arr = explode('/', $img_src);
-		$fullname = end($path_arr);
-		
-		// remove the extension
-		$pos = strrpos($img_src, '.');
-		$img_name = substr($img_src, 0, $pos);
-		
-		// get mime type
-		$this->mime = $this->ewpt_mime_type($img_src, $pos);
-		
-		$cache_filename = $this->cache_filename($img_name);
-		
-		// extension 
-		switch ( $this->mime ) {
-			case 'image/png': $ext = '.png'; break;
-			case 'image/gif': $ext = '.gif'; break;
-			default			: $ext = '.jpg'; break;
-		}	
-		
-		$this->cache_img_name = $cache_filename . $ext;
-		return $this->cache_img_name;
 	}
 	
 	
@@ -1359,12 +1360,23 @@ class easy_wp_thumbs extends ewpt_connect {
 	  * @return (bool) true if allowed - false if not
 	  */
 	private function check_source($img_src) {
-		if(EWPT_ALLOW_ALL_EXTERNAL || !filter_var($img_src, FILTER_VALIDATE_URL) || 1==1) {return true;}
+		if(EWPT_ALLOW_ALL_EXTERNAL || !filter_var($img_src, FILTER_VALIDATE_URL)) {return true;}
 		
 		$src_params = parse_url($img_src);
+		
 		$sites = unserialize(EWPT_ALLOW_EXTERNAL);
 		if(!is_array($sites)) {$sites = array();}
+
+		// add the current URL
+		$sites[] = str_replace('www.', '', $_SERVER['HTTP_HOST']);
 		
+		// if is third livel - the main domain
+		$arr = explode('.', $_SERVER['HTTP_HOST']);
+		$el_num = count($arr);
+		if($el_num > 2) {
+			$sites[] = $arr[ $el_num - 2 ] . '.' . $arr[ $el_num - 1 ];		
+		}
+
 		$allowed = false;
 		foreach($sites as $site){
 			if ((strtolower( substr($src_params['host'],-strlen($site)-1)) === strtolower(".$site")) || (strtolower($src_params['host'])===strtolower($site))) {
