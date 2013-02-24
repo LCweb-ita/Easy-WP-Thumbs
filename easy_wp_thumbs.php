@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.05
+ * Easy WP thumbs v1.06
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.5.0 
  * 
  * @author Luca Montanari
@@ -32,6 +32,17 @@ define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites whe
 	'500px.net'
 ))); 
 	
+	
+// WP CHMOD constants check
+if(!defined('FS_CHMOD_DIR') || !FS_CHMOD_DIR) {$dir_chmod = 0755;}
+else {$dir_chmod = FS_CHMOD_DIR;}
+
+if(!defined('FS_CHMOD_FILE') || !FS_CHMOD_FILE) {$file_chmod = 0644;}
+else {$file_chmod = FS_CHMOD_FILE;}
+
+define('EWPT_CHMOD_DIR', $dir_chmod);
+define('EWPT_CHMOD_FILE', $file_chmod);
+
 
 $error_prefix = 'Easy Wp Thumb v'.EWPT_VER.' - '; 
 
@@ -906,14 +917,14 @@ function ewpt_wpf_check() {
 	
 	// chache dir creation
 	if(!file_exists($ewpt->cache_dir)) {
-		if( !$wp_filesystem->mkdir($ewpt->cache_dir, FS_CHMOD_DIR) ) {
+		if( !$wp_filesystem->mkdir($ewpt->cache_dir, EWPT_CHMOD_DIR) ) {
 			die( __('Error creating the cache directory') );	
 		}
 	}
 	
 	// create the test file and remove it
 	$filename = $ewpt->cache_dir. '/test_file.txt';
-	if ( !file_exists($ewpt->cache_dir) || !$wp_filesystem->put_contents( $filename, 'Testing ..', FS_CHMOD_FILE)) {
+	if ( !file_exists($ewpt->cache_dir) || !$wp_filesystem->put_contents( $filename, 'Testing ..', EWPT_CHMOD_FILE)) {
 		die( __('Error creating the test file') );
 	}
 	$wp_filesystem->delete($filename);
@@ -1020,7 +1031,7 @@ class ewpt_connect {
 			
 			// if method = direct create it and check again
 			if($this->get_method() == 'direct') {
-				mkdir($this->cache_dir, FS_CHMOD_DIR);	
+				mkdir($this->cache_dir, EWPT_CHMOD_DIR);	
 				return $this->is_ready();
 			}
 			
@@ -1067,7 +1078,7 @@ class ewpt_connect {
 		
 		// create file
 		$fullpath = $this->cache_dir.'/'.$filename; 
-		if(!$wp_filesystem->put_contents($fullpath, $contents, FS_CHMOD_FILE)) {
+		if(!$wp_filesystem->put_contents($fullpath, $contents, EWPT_CHMOD_FILE)) {
 			$this->errors[] = __('Error creating the file ') .$filename;
 			return false;	
 		}
