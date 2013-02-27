@@ -1,7 +1,7 @@
 <?php
 /**
- * Easy WP thumbs v1.06
- * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.5.0 
+ * Easy WP thumbs v1.1
+ * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
  * @copyright 2013 Luca Montanari - http://codecanyon.net/user/LCweb
@@ -816,16 +816,20 @@ function ewpt_wpf_form() {
 			jQuery('#ewpt_wrapper .wrap > table').addClass('widefat');
 			if(jQuery('#ewpt_wrapper .wrap > table').size() > 0) {jQuery('#ewpt_wrapper').css('border-bottom', '1px solid #DFDFDF');}
 			
-			jQuery('#ewpt_wrapper .wrap > h2').prepend('Easy WP Thumb - ');
+			jQuery('#ewpt_wrapper .wrap > h2').prepend('Easy WP Thumbs - ');
 		}
 		
+		// setup the loader
+		function ewpt_show_loader() {
+			jQuery('#ewpt_wrapper').html('<img alt="loading .." style="padding-bottom: 20px;" src="data:image/gif;base64,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" />');
+			return true;	
+		}
 		
 		// show the form or the status - ajax
 		function ewpt_setup(step) {
 			var err_mess = '<div id="ewpt_message" class="error"><p><?php _e('<strong>ERROR:</strong> There was an error connecting to the server, Please verify the settings are correct.') ?></p></div>';
 			var fdata = 'action=ewpt_wpf_check&' + jQuery('#ewpt_wrapper input').serialize();
-			
-			jQuery('#ewpt_wrapper').html('<img alt="loading .." style="padding-bottom: 20px;" src="data:image/gif;base64,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" />');
+			ewpt_show_loader();
 			
 			jQuery.post(ajaxurl, fdata, function(response) {
 				jQuery('#ewpt_wrapper').html(response);
@@ -843,6 +847,30 @@ function ewpt_wpf_form() {
 			e.preventDefault();
 			ewpt_setup('send');
 		});
+		
+		// erase cache
+		jQuery('body').delegate('#ewpt_clean_cache_trig', 'click', function(e) {
+			e.preventDefault();
+			
+			if(confirm("<?php _e('Confirm the cache file deletion?') ?>")) {
+				ewpt_show_loader();	
+				
+				var fdata = {
+					action: 'ewpt_erase_cache',
+					ewpt_screen_info: '<?php echo base64_encode( json_encode( get_current_screen()) ) ?>'	
+				};
+				ewpt_show_loader();
+				
+				jQuery.post(ajaxurl, fdata, function(response) {
+					jQuery('#ewpt_wrapper').html(response);
+					ewpt_style_form();
+					
+					if(jQuery('#ewpt_wrapper input[type=submit]').size() > 0) {
+						jQuery('#ewpt_wrapper').prepend(err_mess);	
+					}
+				});
+			}
+		});
 	});
 	</script>
 	<?php
@@ -850,36 +878,66 @@ function ewpt_wpf_form() {
 
 
 // correct setup message
-function ewpt_wpf_ok_mess() {
+function ewpt_wpf_ok_mess($has_cache_files = false) {
 	global $current_screen;
-	
+
 	echo '<div class="wrap">';
 	screen_icon();
 	
+	$clean_cache_string = ($has_cache_files) ? '<a id="ewpt_clean_cache_trig" href="#"> ('. __('Clean cache') .')</a>' : '';  
+	
 	echo '<h2>'. __('Connection Information'). '</h2>
-	<p>'. __('Your system is set up correctly') .'</p><br/>';
+	<p>'. __('Your system is set up properly') . $clean_cache_string .'</p><br/>';
 	die();
 }
 
 
-//////////////////////////////////////////////////////
-// check with the wp filesystem - executed via AJAX
-function ewpt_wpf_check() {
-	global $current_screen;
-	$method = EWPT_DEBUG_VAL; // use 'ftp' or 'ssh' for DEBUG - normally must be empty
-	$ewpt = new ewpt_connect($method);
+// erase the cache and the cache folder
+function ewpt_erase_cache() {
+	// Force direct Flag
+	if(get_option('ewpt_force_ftp') && !defined('FS_METHOD')) {define('FS_METHOD', 'direct');} 
 	
+	$ewpt = new ewpt_connect(EWPT_DEBUG_VAL);
+	
+	// check if is ready to operate
+	if(!$ewpt->is_ready()) {die('Cache folder not found');}
+	
+	global $wp_filesystem;
+	if(!$ewpt->cache_dir || strpos($ewpt->cache_dir, 'ewpt') === false) {die('wrong cache directory');}
+	
+	if( !$wp_filesystem->rmdir( $ewpt->cache_dir, true)) {die('Error deleting the cache files');}
+	
+	$_POST['ewpt_init'] = true;
+	ewpt_wpf_check(false, true);
+	die();
+}
+add_action('wp_ajax_ewpt_erase_cache', 'ewpt_erase_cache');
+
+
+// check with the wp filesystem - executed via AJAX
+function ewpt_wpf_check($force_direct = false) {
+	global $current_screen;
+	$method = EWPT_DEBUG_VAL;
+	$ewpt = new ewpt_connect($method);
+
 	// set the screen info
 	$current_screen = json_decode( base64_decode($_POST['ewpt_screen_info'])); 
 
+	// FTP issue fix
+	if(($force_direct || get_option('ewpt_force_ftp')) && !defined('FS_METHOD')) {define('FS_METHOD', 'direct');} 
+
 	// check if is ready to work - if the server allows to manage directly files and cache dir doesn't exists, create it
 	if($ewpt->is_ready()) {
-		ewpt_wpf_ok_mess();
+		// check for existing cache images
+		global $wp_filesystem;
+		$existing_files = $wp_filesystem->dirlist( $ewpt->cache_dir );
+		$has_cache_files = (is_array($existing_files) && count($existing_files) > 0) ? true : false;
+		
+		ewpt_wpf_ok_mess($has_cache_files);
 	}
 	
-	
 	//// request_filesystem_credentials part (for restricted servers)
-	
+
 	// print the nonces and screen fields anyway
 	wp_nonce_field('ewpt-settings');
 	echo '<input type="hidden" name="ewpt_screen_info" value="'.$_POST['ewpt_screen_info'].'" />';
@@ -897,6 +955,7 @@ function ewpt_wpf_check() {
 		die();
 	}
 	
+	
 	//// handling the data 
 	// check the nonce
 	check_admin_referer('ewpt-settings');
@@ -911,21 +970,35 @@ function ewpt_wpf_check() {
 		request_filesystem_credentials($url, $method, false, $context);
 		die();
 	}
-	
+
 	// connected succesfully - proceed with cache directory and demo file creation 
 	global $wp_filesystem;
 	
 	// chache dir creation
 	if(!file_exists($ewpt->cache_dir)) {
 		if( !$wp_filesystem->mkdir($ewpt->cache_dir, EWPT_CHMOD_DIR) ) {
-			die( __('Error creating the cache directory') );	
+			
+			// try forcing the direct creation
+			if(!$force_direct) {
+				ewpt_wpf_check($force_direct = true);
+				die();
+			} else {
+				die( __('Error creating the cache directory') . '<br/><br/>' );
+			}
+		}
+		else {
+			if($force_direct) {
+				// save the flag to use the direct method
+				if(!get_option('ewpt_force_ftp')) { add_option('ewpt_force_ftp', '255', '', 'yes'); }
+				update_option('ewpt_force_ftp', 1);		
+			}
 		}
 	}
 	
 	// create the test file and remove it
 	$filename = $ewpt->cache_dir. '/test_file.txt';
-	if ( !file_exists($ewpt->cache_dir) || !$wp_filesystem->put_contents( $filename, 'Testing ..', EWPT_CHMOD_FILE)) {
-		die( __('Error creating the test file') );
+	if ( !file_exists($ewpt->cache_dir) || !$wp_filesystem->put_contents($filename, 'Testing ..', EWPT_CHMOD_FILE)) {
+		die( __('Error creating the test file') . '<br/><br/>' );
 	}
 	$wp_filesystem->delete($filename);
 	
@@ -1047,6 +1120,8 @@ class ewpt_connect {
 		
 		// check saved credentials against WP_filesys
 		else {
+			if(get_option('ewpt_force_ftp') && !defined('FS_METHOD')) {define('FS_METHOD', 'direct');} // FTP issue fix
+			
 			if(!$this->creds || !WP_Filesystem($this->creds, $this->cache_dir)) {
 				$this->errors[] = __("WP_filesystem - connection failed");
 				return false;
