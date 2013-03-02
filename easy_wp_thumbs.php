@@ -11,7 +11,7 @@
 if(! defined('EWPT_VER')  ) { 
 
  
-define ('EWPT_VER', '1.01'); // script version
+define ('EWPT_VER', '1.1'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
