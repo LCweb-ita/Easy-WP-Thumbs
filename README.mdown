@@ -27,4 +27,4 @@ To know the parameters and see live demos visis [this page](http://www.projects.
 
 * * *
 
-Copyright (c) 2013 Luca Montanari
+Copyright (c) 2013 Luca Montanari 

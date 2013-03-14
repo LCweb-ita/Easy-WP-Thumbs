@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.1
+ * Easy WP thumbs v1.11
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -11,8 +11,8 @@
 if(! defined('EWPT_VER')  ) { 
 
  
-define ('EWPT_VER', '1.1'); // script version
-define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - on production must be left empty
+define ('EWPT_VER', '1.11'); // script version
+define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
 
@@ -919,7 +919,9 @@ function ewpt_wpf_check($force_direct = false) {
 	global $current_screen;
 	$method = EWPT_DEBUG_VAL;
 	$ewpt = new ewpt_connect($method);
-
+	
+	delete_option('ewpt_force_ftp');
+	
 	// set the screen info
 	$current_screen = json_decode( base64_decode($_POST['ewpt_screen_info'])); 
 
@@ -986,23 +988,34 @@ function ewpt_wpf_check($force_direct = false) {
 				die( __('Error creating the cache directory') . '<br/><br/>' );
 			}
 		}
-		else {
-			if($force_direct) {
-				// save the flag to use the direct method
-				if(!get_option('ewpt_force_ftp')) { add_option('ewpt_force_ftp', '255', '', 'yes'); }
-				update_option('ewpt_force_ftp', 1);		
-			}
-		}
 	}
 	
 	// create the test file and remove it
 	$filename = $ewpt->cache_dir. '/test_file.txt';
-	if ( !file_exists($ewpt->cache_dir) || !$wp_filesystem->put_contents($filename, 'Testing ..', EWPT_CHMOD_FILE)) {
-		die( __('Error creating the test file') . '<br/><br/>' );
+	if ( !file_exists($filename)) {
+		if(!$wp_filesystem->put_contents($filename, 'Testing ..', EWPT_CHMOD_FILE)) {
+			
+			// try forcing the direct creation
+			if(!$force_direct) {
+				ewpt_wpf_check($force_direct = true);
+				die();
+			} else {
+				die( __('Error creating the test file') . '<br/><br/>' );
+			}
+		}
 	}
 	$wp_filesystem->delete($filename);
+
+	//// everything is ok
 	
-	// everything is ok - save the credentials
+	// if is forcing - save the flag
+	if($force_direct) {
+		// save the flag to use the direct method
+		if(!get_option('ewpt_force_ftp')) { add_option('ewpt_force_ftp', '255', '', 'yes'); }
+		update_option('ewpt_force_ftp', 1);		
+	}
+	
+	// save the credentials
 	$raw_creds = base64_encode( json_encode($creds));
 	if(!get_option('ewpt_creds')) { add_option('ewpt_creds', '255', '', 'yes'); }
 	update_option('ewpt_creds', $raw_creds);
