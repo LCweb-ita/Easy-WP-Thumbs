@@ -1,17 +1,19 @@
 <?php
 /**
- * Easy WP thumbs v1.11
+ * Easy WP thumbs v1.12
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
- * @copyright 2013 Luca Montanari - http://codecanyon.net/user/LCweb
+ * @copyright 2013 Luca Montanari - http://projects.lcweb.it
+ *
+ * Licensed under the MIT license
  */
+ 
  
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
-
  
-define ('EWPT_VER', '1.11'); // script version
+define ('EWPT_VER', '1.12'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -27,6 +29,7 @@ define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites whe
 	'imageshack.us',
 	'tinypic.com',
 	'pinterest.com',
+	'pinimg.com', // new pinterest
 	'fbcdn.net', // fb
 	'amazonaws.com',  // instagram
 	'500px.net'
