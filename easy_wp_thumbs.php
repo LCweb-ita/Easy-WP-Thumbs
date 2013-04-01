@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.12
+ * Easy WP thumbs v1.13
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -22,6 +22,7 @@ define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites whe
 	'flickr.com',
 	'staticflickr.com',
 	'picasa.com',
+	'googleusercontent.com', // new picasa
 	'img.youtube.com',
 	'upload.wikimedia.org',
 	'photobucket.com',
