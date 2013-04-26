@@ -33,6 +33,7 @@ define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites whe
 	'pinimg.com', // new pinterest
 	'fbcdn.net', // fb
 	'amazonaws.com',  // instagram
+	'instagram.com',
 	'500px.net'
 ))); 
 	
@@ -1512,7 +1513,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		}
 		
 		// generate new width or height if not provided
-		if($width && !$height) {
+		else if($width && !$height) {
 			$height = floor ($size['height'] * ($width / $size['width']));
 		}
 		elseif(!$width && $height) {
