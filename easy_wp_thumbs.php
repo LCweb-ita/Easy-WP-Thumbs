@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.13
+ * Easy WP thumbs v1.14
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -281,7 +281,7 @@ if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 				foreach($fx_array as $fx) {
 					switch($fx) {
 						case 'blur'		: $this->image->blurImage(1,3); break;
-						case 'grayscale': $this->image->imageModulate(100,0,100); break;	
+						case 'grayscale': $this->image->modulateImage(100,0,100); break;	
 					}
 				}
 				return true;
