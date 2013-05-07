@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.14
+ * Easy WP thumbs v1.15
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.12'); // script version
+define ('EWPT_VER', '1.15'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -1612,7 +1612,7 @@ function easy_wp_thumb($img_src, $width = false, $height = false, $quality = 80,
 
 
 // remote thumb creation - timthumb-like solution
-if(eregi("easy_wp_thumbs.php", $_SERVER['REQUEST_URI']) && isset($_REQUEST['src']) ) {
+if( stristr($_SERVER['REQUEST_URI'], "easy_wp_thumbs.php") !== false && isset($_REQUEST['src']) ) {
 	if (ob_get_level()) {ob_end_clean();}
 	
 	// check for external leechers
