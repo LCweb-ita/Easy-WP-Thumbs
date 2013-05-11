@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.15
+ * Easy WP thumbs v1.16
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.15'); // script version
+define ('EWPT_VER', '1.16'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -192,16 +192,18 @@ if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 				if($mime != 'image/png') {
 					$pattern = '/^#[a-f0-9]{6}$/i';
 					if (strlen($canvas_color) == 3) { //if is 3-char notation, edit string into 6-char notation
-						$canvas_color =  '#' . str_repeat(substr($canvas_color, 0, 1), 2) . str_repeat(substr($canvas_color, 1, 1), 2) . str_repeat(substr($canvas_color, 2, 1), 2); 
+						$canvas_color = str_repeat(substr($canvas_color, 0, 1), 2) . str_repeat(substr($canvas_color, 1, 1), 2) . str_repeat(substr($canvas_color, 2, 1), 2); 
 					} 
-					else if (strlen($canvas_color) != 6 || !preg_match($pattern, $$canvas_color)) {
+					$canvas_color = '#' . $canvas_color;
+					
+					if (strlen($canvas_color) != 7 || !preg_match($pattern, $canvas_color)) {
 						$canvas_color = '#FFFFFF'; // on error return default canvas color
 					}	
-					
+
 					$this->image->setimagebackgroundcolor($canvas_color);	
 				}
 				else {$canvas_color = 'transparent';}
-				
+
 				// stretch the image to the size
 				if($zoom_crop == 0) {
 					$this->image->resizeimage($new_width, $new_height, imagick::FILTER_POINT, 0, FALSE ); 
@@ -369,7 +371,7 @@ if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 				} else if (strlen($canvas_color) != 6) {
 					$canvas_color = 'FFFFFF'; // on error return default canvas color
 				}
-		
+				
 				$canvas_color_R = hexdec (substr ($canvas_color, 0, 2));
 				$canvas_color_G = hexdec (substr ($canvas_color, 2, 2));
 				$canvas_color_B = hexdec (substr ($canvas_color, 4, 2));
@@ -1295,6 +1297,7 @@ class easy_wp_thumbs extends ewpt_connect {
 	  */
 	private function load_image($img_src) {
 		if( (float)substr(get_bloginfo('version'), 0, 3) < 3.5) {
+			die('gd piddi');
 			$this->editor = new ewpt_old_wp_img_editor($img_src);
 		} else {
 			$this->editor = new ewpt_editor_extension($img_src);
@@ -1334,6 +1337,11 @@ class easy_wp_thumbs extends ewpt_connect {
 					
 					// if resizing parameter is wrong - set the default one
 					if($this->params['rs'] > 3) {$this->params['rs'] = 1;}
+					
+					// canvas control 
+					if(!preg_match('/^#[a-f0-9]{6}$/i', '#' . $this->params['cc'])) {
+						$this->params['cc'] = 'FFFFFF';
+					}
 					
 					// if there is no alignment - set it to the center
 					$positions = array('tl','t','tr','l','c','r','bl','b','br');
@@ -1425,13 +1433,14 @@ class easy_wp_thumbs extends ewpt_connect {
 	private function cache_filename($img_name) {
 		$crypt_name = md5($img_name);
 		$fx_val = (is_array($this->params['fx'])) ? 1 : 0;
-		
+
 		$cache_name = 
 			$this->params['w'] . 'x' .
 			$this->params['h'] . '_' .
 			$this->params['q'] . '_' .
 			$this->params['rs'] . '_' .
 			$this->params['a'] . '_' .
+			$this->params['cc'] . '_' .
 			$this->fx_filename .
 			$crypt_name;
 		
