@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.16
+ * Easy WP thumbs v1.161
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.16'); // script version
+define ('EWPT_VER', '1.161'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -1297,7 +1297,6 @@ class easy_wp_thumbs extends ewpt_connect {
 	  */
 	private function load_image($img_src) {
 		if( (float)substr(get_bloginfo('version'), 0, 3) < 3.5) {
-			die('gd piddi');
 			$this->editor = new ewpt_old_wp_img_editor($img_src);
 		} else {
 			$this->editor = new ewpt_editor_extension($img_src);
