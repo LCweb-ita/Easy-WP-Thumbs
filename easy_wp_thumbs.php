@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.161
+ * Easy WP thumbs v1.17
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.161'); // script version
+define ('EWPT_VER', '1.17'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -796,11 +796,21 @@ class ewpt_old_wp_img_editor {
 
 // Connection fields - SHOULD be inserted in a form
 function ewpt_wpf_form() {
+	// hide the icon and reduce the title size
+	echo '
+	<style type="text/css">
+	#ewpt_wrapper .icon32 {display: none;}
+	#ewpt_wrapper h2 {
+		font-size: 20px;
+		height: 24px;
+    	line-height: 20px;
+		margin-bottom: 5px;
+    	padding-bottom: 0;
+	}
+	</style>';
+	
 	echo '<div id="ewpt_wrapper">';
-		
-		// screen info
-		echo '<input type="hidden" name="ewpt_screen_info" value="'.base64_encode( json_encode( get_current_screen()) ).'" />';
-		
+
 		// nonce for the credentials
 		// get the admin page string for the nonce 
 		$pos = strpos($_SERVER["REQUEST_URI"], 'wp-admin/');
@@ -863,8 +873,7 @@ function ewpt_wpf_form() {
 				ewpt_show_loader();	
 				
 				var fdata = {
-					action: 'ewpt_erase_cache',
-					ewpt_screen_info: '<?php echo base64_encode( json_encode( get_current_screen()) ) ?>'	
+					action: 'ewpt_erase_cache'
 				};
 				ewpt_show_loader();
 				
@@ -886,11 +895,7 @@ function ewpt_wpf_form() {
 
 // correct setup message
 function ewpt_wpf_ok_mess($has_cache_files = false) {
-	global $current_screen;
-
 	echo '<div class="wrap">';
-	screen_icon();
-	
 	$clean_cache_string = ($has_cache_files) ? '<a id="ewpt_clean_cache_trig" href="#"> ('. __('Clean cache') .')</a>' : '';  
 	
 	echo '<h2>'. __('Connection Information'). '</h2>
@@ -923,15 +928,15 @@ add_action('wp_ajax_ewpt_erase_cache', 'ewpt_erase_cache');
 
 // check with the wp filesystem - executed via AJAX
 function ewpt_wpf_check($force_direct = false) {
-	global $current_screen;
+	// set a fake screen type
+	$GLOBALS['hook_suffix'] = 'page';
+	set_current_screen();
+	
 	$method = EWPT_DEBUG_VAL;
 	$ewpt = new ewpt_connect($method);
 	
 	delete_option('ewpt_force_ftp');
 	
-	// set the screen info
-	$current_screen = json_decode( base64_decode($_POST['ewpt_screen_info'])); 
-
 	// FTP issue fix
 	if(($force_direct || get_option('ewpt_force_ftp')) && !defined('FS_METHOD')) {define('FS_METHOD', 'direct');} 
 
@@ -949,8 +954,9 @@ function ewpt_wpf_check($force_direct = false) {
 
 	// print the nonces and screen fields anyway
 	wp_nonce_field('ewpt-settings');
-	echo '<input type="hidden" name="ewpt_screen_info" value="'.$_POST['ewpt_screen_info'].'" />';
-	echo '<input type="hidden" name="ewpt_nonce_url" value="'.$_POST['ewpt_nonce_url'].'" />';
+	if(isset($_POST['ewpt_nonce_url'])) {
+		echo '<input type="hidden" name="ewpt_nonce_url" value="'.$_POST['ewpt_nonce_url'].'" />';
+	}
 	
 	// context
 	($ewpt->cache_dir_exists()) ? $context = $ewpt->cache_dir : $context = $ewpt->basedir;
@@ -963,7 +969,6 @@ function ewpt_wpf_check($force_direct = false) {
 		request_filesystem_credentials($nonce_url, $method, false, $context);
 		die();
 	}
-	
 	
 	//// handling the data 
 	// check the nonce
