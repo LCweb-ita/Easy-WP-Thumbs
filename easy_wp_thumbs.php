@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.17
+ * Easy WP thumbs v1.2
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.17'); // script version
+define ('EWPT_VER', '1.2'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -49,7 +49,13 @@ define('EWPT_CHMOD_DIR', $dir_chmod);
 define('EWPT_CHMOD_FILE', $file_chmod);
 
 
-$error_prefix = 'Easy Wp Thumb v'.EWPT_VER.' - '; 
+// forcing via REQUEST parameter
+if(isset($_REQUEST['ewpt_force']) && !defined('FS_METHOD')) {
+	define('FS_METHOD', 'direct');	
+}
+
+
+$error_prefix = 'Easy WP Thumbs v'.EWPT_VER.' - '; 
 
 //////////////////////////////////////////////////////////////
 // if not exist - load WP functions
@@ -935,10 +941,8 @@ function ewpt_wpf_check($force_direct = false) {
 	$method = EWPT_DEBUG_VAL;
 	$ewpt = new ewpt_connect($method);
 	
-	delete_option('ewpt_force_ftp');
-	
 	// FTP issue fix
-	if(($force_direct || get_option('ewpt_force_ftp')) && !defined('FS_METHOD')) {define('FS_METHOD', 'direct');} 
+	if( ($force_direct || get_option('ewpt_force_ftp')) && !defined('FS_METHOD')) {define('FS_METHOD', 'direct');} 
 
 	// check if is ready to work - if the server allows to manage directly files and cache dir doesn't exists, create it
 	if($ewpt->is_ready()) {
@@ -1021,7 +1025,7 @@ function ewpt_wpf_check($force_direct = false) {
 	//// everything is ok
 	
 	// if is forcing - save the flag
-	if($force_direct) {
+	if($force_direct || (defined('FS_METHOD') && FS_METHOD == 'direct') ) {
 		// save the flag to use the direct method
 		if(!get_option('ewpt_force_ftp')) { add_option('ewpt_force_ftp', '255', '', 'yes'); }
 		update_option('ewpt_force_ftp', 1);		
@@ -1137,6 +1141,9 @@ class ewpt_connect {
 			return false;
 		}
 		
+		// force flag
+		if(get_option('ewpt_force_ftp') && !defined('FS_METHOD')) {define('FS_METHOD', 'direct');} 
+		
 		// if has "direct access" 
 		if($this->get_method( $this->cache_dir ) == 'direct') {
 			WP_Filesystem(false, $this->cache_dir);
@@ -1145,10 +1152,8 @@ class ewpt_connect {
 		
 		// check saved credentials against WP_filesys
 		else {
-			if(get_option('ewpt_force_ftp') && !defined('FS_METHOD')) {define('FS_METHOD', 'direct');} // FTP issue fix
-			
 			if(!$this->creds || !WP_Filesystem($this->creds, $this->cache_dir)) {
-				$this->errors[] = __("WP_filesystem - connection failed");
+				$this->errors[] = __("01 - WP_filesystem - connection failed");
 				return false;
 			}
 			else {return true;}	
@@ -1171,15 +1176,27 @@ class ewpt_connect {
 		
 		// connect
 		if(!$this->is_ready()) {
-			$this->errors[] = __('WP_filesystem - connection failed');
-			return false;	
+			
+			// try another time forcing
+			if(!defined('FS_METHOD')) {
+				define('FS_METHOD', 'direct');
+				
+				if(!$this->is_ready()) {
+					$this->errors[] = __('02 - WP_filesystem - connection failed');
+					return false;		
+				}
+			}
+			else {
+				$this->errors[] = __('02 - WP_filesystem - connection failed');
+				return false;	
+			}
 		}
 		global $wp_filesystem;
 		
 		// create file
 		$fullpath = $this->cache_dir.'/'.$filename; 
 		if(!$wp_filesystem->put_contents($fullpath, $contents, EWPT_CHMOD_FILE)) {
-			$this->errors[] = __('Error creating the file ') .$filename;
+			$this->errors[] = __('Error creating the file') . ' ' .$filename;
 			return false;	
 		}
 		else {return true;}
