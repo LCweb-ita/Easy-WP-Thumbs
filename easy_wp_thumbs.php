@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.2'); // script version
+define ('EWPT_VER', '1.21'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -165,6 +165,14 @@ if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 			private function ewpt_mime_to_ext($mime) {
 				$arr = explode('/', $mime);
 				return end($arr);	
+			}
+			
+			
+			/**
+			 * Check if a valid imagick resource exists
+			 */
+			public function ewpt_is_valid_resource() {
+				return (is_object($this->editor->image)) ? true : false;
 			}
 			
 			
@@ -1322,7 +1330,14 @@ class easy_wp_thumbs extends ewpt_connect {
 			$this->editor = new ewpt_old_wp_img_editor($img_src);
 		} else {
 			$this->editor = new ewpt_editor_extension($img_src);
-			$this->editor->load();
+			
+			// check the resource and eventually uses the GD library
+			if($this->editor->ewpt_is_valid_resource() ) {
+				$this->editor->load();	
+			}
+			else {
+				$this->editor = new ewpt_old_wp_img_editor($img_src);
+			}
 		}	
 		
 		if(is_wp_error( $this->editor )) {
