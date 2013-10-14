@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.2
+ * Easy WP thumbs v1.211
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.21'); // script version
+define ('EWPT_VER', '1.211'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -34,7 +34,8 @@ define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites whe
 	'fbcdn.net', // fb
 	'amazonaws.com',  // instagram
 	'instagram.com',
-	'500px.net'
+	'500px.net',
+	'500px.org'
 ))); 
 	
 	
@@ -330,6 +331,14 @@ if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 						case 'grayscale': imagefilter($this->image, IMG_FILTER_GRAYSCALE); break;	
 					}
 				}
+				return true;
+			}
+			
+			
+			/**
+			 * Check if a valid imagick resource exists - in this case returns always true
+			 */
+			public function ewpt_is_valid_resource() {
 				return true;
 			}
 			
