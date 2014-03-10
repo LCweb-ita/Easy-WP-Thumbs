@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.211
+ * Easy WP thumbs v1.22
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -868,7 +868,7 @@ function ewpt_wpf_form() {
 		// show the form or the status - ajax
 		function ewpt_setup(step) {
 			var err_mess = '<div id="ewpt_message" class="error"><p><?php _e('<strong>ERROR:</strong> There was an error connecting to the server, Please verify the settings are correct.') ?></p></div>';
-			var fdata = 'action=ewpt_wpf_check&' + jQuery('#ewpt_wrapper input').serialize();
+			var fdata = 'action=ewpt_wpf_check&' + jQuery('#ewpt_wrapper input').serialize() +'&lcwp_nonce=<?php echo wp_create_nonce('lcwp_nonce') ?>';
 			ewpt_show_loader();
 			
 			jQuery.post(ajaxurl, fdata, function(response) {
@@ -896,7 +896,8 @@ function ewpt_wpf_form() {
 				ewpt_show_loader();	
 				
 				var fdata = {
-					action: 'ewpt_erase_cache'
+					action: 'ewpt_erase_cache',
+					lcwp_nonce: '<?php echo wp_create_nonce('lcwp_nonce') ?>'
 				};
 				ewpt_show_loader();
 				
@@ -929,6 +930,8 @@ function ewpt_wpf_ok_mess($has_cache_files = false) {
 
 // erase the cache and the cache folder
 function ewpt_erase_cache() {
+	if(!isset($_POST['lcwp_nonce']) || !wp_verify_nonce($_POST['lcwp_nonce'], 'lcwp_nonce')) {die('Cheating?');};
+	
 	// Force direct Flag
 	if(get_option('ewpt_force_ftp') && !defined('FS_METHOD')) {define('FS_METHOD', 'direct');} 
 	
@@ -951,6 +954,8 @@ add_action('wp_ajax_ewpt_erase_cache', 'ewpt_erase_cache');
 
 // check with the wp filesystem - executed via AJAX
 function ewpt_wpf_check($force_direct = false) {
+	if(!isset($_POST['lcwp_nonce']) || !wp_verify_nonce($_POST['lcwp_nonce'], 'lcwp_nonce')) {die('Cheating?');};
+	
 	// set a fake screen type
 	$GLOBALS['hook_suffix'] = 'page';
 	set_current_screen();
