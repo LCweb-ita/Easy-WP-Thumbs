@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.22
+ * Easy WP thumbs v1.3
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.211'); // script version
+define ('EWPT_VER', '1.3'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -31,7 +31,8 @@ define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites whe
 	'tinypic.com',
 	'pinterest.com',
 	'pinimg.com', // new pinterest
-	'fbcdn.net', // fb
+	'fbcdn.net', // fb,
+	'akamaihd.net', // new fb
 	'amazonaws.com',  // instagram
 	'instagram.com',
 	'500px.net',
@@ -471,10 +472,10 @@ if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 						}
 					}
 					
-					imagecopyresampled ($canvas, $image, $origin_x, $origin_y, $src_x, $src_y, $new_width, $new_height, $src_w, $src_h);
+					@imagecopyresampled ($canvas, $image, $origin_x, $origin_y, $src_x, $src_y, $new_width, $new_height, $src_w, $src_h);
 					
 				} else {
-					imagecopyresampled ($canvas, $image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
+					@imagecopyresampled ($canvas, $image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
 				}
 				
 				//Straight from Wordpress core code. Reduces filesize by up to 70% for PNG's
@@ -531,18 +532,51 @@ class ewpt_old_wp_img_editor {
 
 		// Set artificially high because GD uses uncompressed images in memory
 		@ini_set( 'memory_limit', '256M');
-		$this->image = @imagecreatefromstring( file_get_contents( $this->file ) );
+		
+		// get image 
+		if(!function_exists('curl_init') || !filter_var($this->file, FILTER_VALIDATE_URL)) {
+			$img_data = file_get_contents( $this->file );
+			
+			// mime type
+			$pos = strrpos($this->file, '.');
+			$ext = strtolower(substr($this->file, $pos));
+			switch($ext) {
+				case '.png'	: $mime = 'image/png'; break;
+				case '.gif'	: $mime = 'image/gif'; break;
+				default		: $mime = 'image/jpeg'; break;
+			}
+		}
+		else {
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_AUTOREFERER, true);
+			curl_setopt($ch, CURLOPT_HEADER, 0);
+			curl_setopt($ch, CURLOPT_USERAGENT, true);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+			curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+			curl_setopt($ch, CURLOPT_URL, $this->file);
+			
+			$img_data = curl_exec($ch);
+    		$mime = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+			curl_close($ch);	
+		}
+		
+		$this->image = imagecreatefromstring( $img_data );
 
 		if ( ! is_resource( $this->image ) )
 			return new WP_Error( 'invalid_image', __('File is not an image.'), $this->file );
 
-		$size = @getimagesize( $this->file );
-		if ( ! $size )
-			return new WP_Error( 'invalid_image', __('Could not read image size.'), $this->file );
-
-		$this->update_size( $size[0], $size[1] );
-		$this->mime_type = $size['mime'];
-
+		// image sizes
+		$img_x = imagesx($this->image);
+		$img_y = imagesy($this->image);
+		
+		if ( !$img_x ) return new WP_Error( 'invalid_image', __('Could not read image size.'), $this->file );
+		$this->update_size($img_x, $img_y);
+		
+		// image mime type
+		$this->mime_type = $mime;
 		return true;
 	}
 	
@@ -750,12 +784,12 @@ class ewpt_old_wp_img_editor {
 				}
 			}
 
-			imagecopyresampled ($canvas, $image, $origin_x, $origin_y, $src_x, $src_y, $new_width, $new_height, $src_w, $src_h);
+			@imagecopyresampled ($canvas, $image, $origin_x, $origin_y, $src_x, $src_y, $new_width, $new_height, $src_w, $src_h);
 			
 		} else {
 
 			// copy and resize part of an image with resampling
-			imagecopyresampled ($canvas, $image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
+			@imagecopyresampled ($canvas, $image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
 		}
 		
 		//Straight from Wordpress core code. Reduces filesize by up to 70% for PNG's
@@ -1340,7 +1374,8 @@ class easy_wp_thumbs extends ewpt_connect {
 	  * @param string $img_src image path/url
 	  */
 	private function load_image($img_src) {
-		if( (float)substr(get_bloginfo('version'), 0, 3) < 3.5) {
+		// if remote call - use faster loading of old-editor
+		if( (float)substr(get_bloginfo('version'), 0, 3) < 3.5 || (function_exists('curl_init') && filter_var($img_src, FILTER_VALIDATE_URL))) {
 			$this->editor = new ewpt_old_wp_img_editor($img_src);
 		} else {
 			$this->editor = new ewpt_editor_extension($img_src);
