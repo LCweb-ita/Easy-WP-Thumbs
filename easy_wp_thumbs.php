@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.3
+ * Easy WP thumbs v1.31
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.3'); // script version
+define ('EWPT_VER', '1.31'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -35,6 +35,8 @@ define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites whe
 	'akamaihd.net', // new fb
 	'amazonaws.com',  // instagram
 	'instagram.com',
+	'dropboxusercontent.com',
+	'tumblr.com',
 	'500px.net',
 	'500px.org'
 ))); 
@@ -1718,8 +1720,17 @@ if( stristr($_SERVER['REQUEST_URI'], "easy_wp_thumbs.php") !== false && isset($_
 	$params = wp_parse_args($clean_uri);
 	
 	$ewpt = new easy_wp_thumbs(EWPT_DEBUG_VAL);
-	$thumb = $ewpt->get_thumb($_REQUEST['src'], $params, $stream = true);
+	$url = trim($_REQUEST['src']);
 	
+	// url management for special chars
+	$url = rawurlencode(stripslashes($url));
+	$url = str_replace(array('%2F', '%5C', '%3A'), array('/', '\\', ':'), $url);
+	
+	// debug
+	//var_dump( filter_var( $url, FILTER_VALIDATE_URL) );
+	//die($url);
+	
+	$thumb = $ewpt->get_thumb($url, $params, $stream = true);
 	if(!$thumb) {
 		header ($_SERVER['SERVER_PROTOCOL'] . ' 400 Bad Request');
 		die( $ewpt->get_errors() );
