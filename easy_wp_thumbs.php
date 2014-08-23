@@ -1,10 +1,10 @@
 <?php
 /**
- * Easy WP thumbs v1.31
+ * Easy WP thumbs v1.34
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
- * @author Luca Montanari
- * @copyright 2013 Luca Montanari - http://projects.lcweb.it
+ * @author Luca Montanari - LCweb
+ * @copyright 2014 Luca Montanari - http://projects.lcweb.it
  *
  * Licensed under the MIT license
  */
@@ -13,10 +13,10 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.31'); // script version
+define ('EWPT_VER', '1.34'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
-define ('EWPT_BLOCK_LEECHERS', true); // block thumb loading on other websites
-define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
+define ('EWPT_BLOCK_LEECHERS', false); // block thumb loading on other websites
+define ('EWPT_ALLOW_ALL_EXTERNAL', true);	// allow fetching from any website - set to false to avoid security issues
 
 define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites where the script can fetch images
 	'flickr.com',
@@ -65,7 +65,7 @@ $error_prefix = 'Easy WP Thumbs v'.EWPT_VER.' - ';
 // if not exist - load WP functions
 if(!function_exists('get_option')) {
 	$curr_path = dirname(__FILE__);
-	$curr_path_arr = explode('/', $curr_path);
+	$curr_path_arr = explode(DIRECTORY_SEPARATOR, $curr_path);
 	
 	$true_path_arr = array();
 	foreach($curr_path_arr as $part) {
@@ -533,7 +533,15 @@ class ewpt_old_wp_img_editor {
 			return new WP_Error( 'error_loading_image', __('File doesn&#8217;t exist?'), $this->file );
 
 		// Set artificially high because GD uses uncompressed images in memory
-		@ini_set( 'memory_limit', '256M');
+		@ini_set('memory_limit', '256M');
+		if (!ini_get('allow_url_fopen')) {
+			@ini_set('allow_url_fopen', 1);
+		}
+		
+		// if is urlenceded - decode
+		if(strpos($this->file, '%3F') !== false) {
+			$this->file = urldecode($this->file);	
+		}
 		
 		// get image 
 		if(!function_exists('curl_init') || !filter_var($this->file, FILTER_VALIDATE_URL)) {
@@ -1185,14 +1193,14 @@ class ewpt_connect {
 	/**
 	  * Check if everything has been set up to start creating thumbnails
 	  */
-	public function is_ready() {
+	public function is_ready($recursing = false) {
 		// check if the cache directory has been set
 		if(!$this->cache_dir_exists()) {
 			
 			// if method = direct create it and check again
-			if($this->get_method() == 'direct') {
+			if($this->get_method() == 'direct' && !$recursing) {
 				mkdir($this->cache_dir, EWPT_CHMOD_DIR);	
-				return $this->is_ready();
+				return $this->is_ready(true);
 			}
 			
 			$this->errors[] = __("Cache folder doesn't exists");
@@ -1316,13 +1324,13 @@ class easy_wp_thumbs extends ewpt_connect {
 	  */
 	public function get_thumb($img_src, $params = false, $stream = false) {
 		// clean url parameters
-		$img_src = preg_replace('/\\?.*/', '', $img_src);
+		//$img_src = preg_replace('/\\?.*/', '', $img_src);
 		
 		// connect to WP filesystem
 		if(!$this->is_ready()) {return false;}
 		global $wp_filesystem;
 		
-		// setup the parameters
+		// setup the parameters 
 		$this->setup_params($params);
 		
 		// check the source
@@ -1497,17 +1505,19 @@ class easy_wp_thumbs extends ewpt_connect {
 	  * @param int $pos position of the latest dot (to retrieve the file extension)
 	  */
 	private function ewpt_mime_type($img_name, $pos) {
-		$ext = substr($img_name, ($pos + 1));
+		$ext = substr($img_name, ($pos + 1), 3);
 		$mime_types = array(
-			'jpg|jpeg|jpe' => 'image/jpeg',
+			'jpg|jpe' => 'image/jpeg',
 			'gif' => 'image/gif',
 			'png' => 'image/png',
 		);
 		$extensions = array_keys( $mime_types );
-
-		foreach( $extensions as $_extension ) {
-			if ( preg_match( "/{$ext}/i", $_extension ) ) {
-				return $mime_types[$_extension];
+		
+		if($ext) {
+			foreach( $extensions as $_extension ) {
+				if ( preg_match( "/{$ext}/i", $_extension ) ) {
+					return $mime_types[$_extension];
+				}
 			}
 		}
 		return false;
