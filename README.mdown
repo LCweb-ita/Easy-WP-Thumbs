@@ -20,7 +20,7 @@ Supports the WP 3.5 WP_Image_Editor class, using Imagick where available
 
 ## Documentation
 
-To know the parameters and see live demos visit [this page](http://www.projects.lcweb.it/easy-wp-thumbs) 
+To know the parameters and see live demos visit [this page](http://www.lcweb.it/easy-wp-thumbs) 
 
 
 
