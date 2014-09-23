@@ -4,7 +4,7 @@
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari - LCweb
- * @copyright 2014 Luca Montanari - http://projects.lcweb.it
+ * @copyright 2014 Luca Montanari - http://www.lcweb.it
  *
  * Licensed under the MIT license
  */
@@ -1751,4 +1751,3 @@ if( stristr($_SERVER['REQUEST_URI'], "easy_wp_thumbs.php") !== false && isset($_
 
 
 } // ewpt existing check end
-?>
