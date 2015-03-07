@@ -1484,14 +1484,17 @@ class easy_wp_thumbs extends ewpt_connect {
 		// get mime type
 		$this->mime = $this->ewpt_mime_type($img_src, $pos);
 		
-		$cache_filename = $this->cache_filename($clean_path);
-		
 		// extension 
 		switch ( $this->mime ) {
 			case 'image/png': $ext = '.png'; break;
 			case 'image/gif': $ext = '.gif'; break;
 			default			: $ext = '.jpg'; break;
 		}	
+		
+		// if pos > 4 - image has not extension, user full URL 
+		if($pos > 4) {$clean_path = str_replace(array('http://', 'https://'), '', $img_src);}
+			
+		$cache_filename = $this->cache_filename($clean_path);
 		
 		$this->cache_img_name = $cache_filename . $ext;
 		return $this->cache_img_name;
