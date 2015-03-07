@@ -1,10 +1,10 @@
 <?php
 /**
- * Easy WP thumbs v1.34
+ * Easy WP thumbs v1.35
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari - LCweb
- * @copyright 2014 Luca Montanari - http://www.lcweb.it
+ * @copyright 2015 Luca Montanari - http://www.lcweb.it
  *
  * Licensed under the MIT license
  */
@@ -13,10 +13,10 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.34'); // script version
+define ('EWPT_VER', '1.35'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', false); // block thumb loading on other websites
-define ('EWPT_ALLOW_ALL_EXTERNAL', true);	// allow fetching from any website - set to false to avoid security issues
+define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
 
 define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites where the script can fetch images
 	'flickr.com',
@@ -159,7 +159,7 @@ function ewpt_standard_caching_headers() {
 // extend the WP 3.5 editor classes to get the image resource directly without headers
 if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 	$editor = _wp_image_editor_choose();
-	
+
 	if($editor == 'WP_Image_Editor_Imagick') {
 		class ewpt_editor_extension extends WP_Image_Editor_Imagick {
 			
@@ -176,7 +176,7 @@ if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
 			 * Check if a valid imagick resource exists
 			 */
 			public function ewpt_is_valid_resource() {
-				return (is_object($this->editor->image)) ? true : false;
+				return (isset($this->editor) && is_object($this->editor->image)) ? true : false;
 			}
 			
 			
@@ -1520,6 +1520,27 @@ class easy_wp_thumbs extends ewpt_connect {
 				}
 			}
 		}
+		
+		// if nothing is found (no extension in URL - try with a cURL call)
+		if(!filter_var($img_name, FILTER_VALIDATE_URL) === false) {
+			$ch = curl_init();
+			curl_setopt($ch, CURLOPT_AUTOREFERER, true);
+			curl_setopt($ch, CURLOPT_HEADER, 0);
+			curl_setopt($ch, CURLOPT_USERAGENT, true);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+			curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+			curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+
+			$ch = curl_init($img_name);
+			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_exec($ch);
+			
+			$mime = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+			return (in_array($mime, $mime_types)) ? $mime : false;
+		}
+		
 		return false;
 	}
 	
@@ -1751,3 +1772,4 @@ if( stristr($_SERVER['REQUEST_URI'], "easy_wp_thumbs.php") !== false && isset($_
 
 
 } // ewpt existing check end
+?>

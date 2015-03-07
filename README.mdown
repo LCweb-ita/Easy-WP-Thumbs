@@ -27,4 +27,4 @@ To know the parameters and see live demos visit [this page](http://www.lcweb.it/
 
 * * *
 
-Copyright (c) 2014 Luca Montanari 
+Copyright (c) Luca Montanari 
