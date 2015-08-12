@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.35
+ * Easy WP thumbs v1.36
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari - LCweb
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.35'); // script version
+define ('EWPT_VER', '1.36'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', false); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -1093,13 +1093,11 @@ function ewpt_wpf_check($force_direct = false) {
 	// if is forcing - save the flag
 	if($force_direct || (defined('FS_METHOD') && FS_METHOD == 'direct') ) {
 		// save the flag to use the direct method
-		if(!get_option('ewpt_force_ftp')) { add_option('ewpt_force_ftp', '255', '', 'yes'); }
 		update_option('ewpt_force_ftp', 1);		
 	}
 	
 	// save the credentials
 	$raw_creds = base64_encode( json_encode($creds));
-	if(!get_option('ewpt_creds')) { add_option('ewpt_creds', '255', '', 'yes'); }
 	update_option('ewpt_creds', $raw_creds);
 	
 	ewpt_wpf_ok_mess();
@@ -1690,7 +1688,7 @@ class easy_wp_thumbs extends ewpt_connect {
 	  */
 	private function return_image($filename, $stream = false, $img_contents = false) {
 		if(!$stream) {
-			return $this->cache_url . '/' . $filename;
+			return str_replace(array('http:', 'https:', 'HTTP:', 'HTTPS:'), '', $this->cache_url) . '/' . $filename;
 		}
 		else {
 			// browser cache
@@ -1738,6 +1736,7 @@ function easy_wp_thumb($img_src, $width = false, $height = false, $quality = 80,
 	
 	if(!$thumb) { return __('thumb creation failed');}
 	else {return $thumb;}  
+
 }
 
 
@@ -1775,4 +1774,3 @@ if( stristr($_SERVER['REQUEST_URI'], "easy_wp_thumbs.php") !== false && isset($_
 
 
 } // ewpt existing check end
-?>
