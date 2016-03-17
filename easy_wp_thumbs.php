@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v1.36
+ * Easy WP thumbs v1.4
  * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
  * 
  * @author Luca Montanari - LCweb
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.36'); // script version
+define ('EWPT_VER', '1.4'); // script version
 define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', false); // block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
@@ -34,6 +34,7 @@ define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites whe
 	'fbcdn.net', // fb,
 	'akamaihd.net', // new fb
 	'amazonaws.com',  // instagram
+	'cdninstagram.com', // new instagram
 	'instagram.com',
 	'dropboxusercontent.com',
 	'tumblr.com',
@@ -59,7 +60,13 @@ if(isset($_REQUEST['ewpt_force']) && !defined('FS_METHOD')) {
 }
 
 
+// cURL followlocation switch
+$followloc = (!ini_get('open_basedir') && !ini_get('safe_mode')) ? true : false; 
+define('EWPT_FOLLOWLOCATION', $followloc);
+
+
 $error_prefix = 'Easy WP Thumbs v'.EWPT_VER.' - '; 
+
 
 //////////////////////////////////////////////////////////////
 // if not exist - load WP functions
@@ -567,6 +574,7 @@ class ewpt_old_wp_img_editor {
 			curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
 			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
 			curl_setopt($ch, CURLOPT_URL, $this->file);
+			curl_setopt($ch, CURLOPT_FOLLOWLOCATION, EWPT_FOLLOWLOCATION);
 			
 			$img_data = curl_exec($ch);
     		$mime = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
@@ -1524,21 +1532,14 @@ class easy_wp_thumbs extends ewpt_connect {
 		
 		// if nothing is found (no extension in URL - try with a cURL call)
 		if(!filter_var($img_name, FILTER_VALIDATE_URL) === false) {
-			$ch = curl_init();
-			curl_setopt($ch, CURLOPT_AUTOREFERER, true);
-			curl_setopt($ch, CURLOPT_HEADER, 0);
-			curl_setopt($ch, CURLOPT_USERAGENT, true);
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-			curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-			curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
-			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
-
 			$ch = curl_init($img_name);
 			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+			curl_setopt($ch, CURLOPT_FOLLOWLOCATION, EWPT_FOLLOWLOCATION);
 			curl_exec($ch);
 			
 			$mime = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+			curl_close($ch);
+			
 			return (in_array($mime, $mime_types)) ? $mime : false;
 		}
 		
