@@ -4,9 +4,9 @@ Easy WP Thumbs
 Easy WP Thumbs is a PHP script created with the purpose to make thumbnails creation process as easy and smooth as possible.
 Inspired by TimThumb, is deeply integrated into Wordpress. 
 
-Requires at least WP 3.0
+Requires at least WP 3.5 and PHP 5.2
 
-Supports the WP 3.5 WP_Image_Editor class, using Imagick where available.
+Supports WP 3.5 WP_Image_Editor class, using Imagick where available.
 
 
 ## How to use
