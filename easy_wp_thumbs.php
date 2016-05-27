@@ -1,10 +1,10 @@
 <?php
 /**
- * Easy WP thumbs v1.36
- * NOTE: Designed for use with PHP version 5 and up. Requires at least WP 3.0
+ * Easy WP thumbs v2.01
+ * NOTE: Designed for use with PHP version 5.2 and up. Requires at least WP 3.5
  * 
  * @author Luca Montanari - LCweb
- * @copyright 2015 Luca Montanari - http://www.lcweb.it
+ * @copyright 2016 Luca Montanari - http://www.lcweb.it
  *
  * Licensed under the MIT license
  */
@@ -13,16 +13,18 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '1.36'); // script version
-define ('EWPT_DEBUG_VAL', ''); // wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
-define ('EWPT_BLOCK_LEECHERS', false); // block thumb loading on other websites
-define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
+define ('EWPT_VER', '2.0'); 			// script version
+define ('EWPT_DEBUG_VAL', ''); 				// wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
+define ('EWPT_BLOCK_LEECHERS', false); 		// block thumb loading on other websites
+define ('EWPT_ALLOW_ALL_EXTERNAL', true);	// allow fetching from any website - set to false to avoid security issues
+define ('EWPT_SEO_CACHE_FILENAME', true);	// whether to add original image name to cache file in order to help SEO
 
 define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites where the script can fetch images
 	'flickr.com',
 	'staticflickr.com',
 	'picasa.com',
 	'googleusercontent.com', // new picasa
+	'google.com', // google drive direct link
 	'img.youtube.com',
 	'upload.wikimedia.org',
 	'photobucket.com',
@@ -34,6 +36,7 @@ define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites whe
 	'fbcdn.net', // fb,
 	'akamaihd.net', // new fb
 	'amazonaws.com',  // instagram
+	'cdninstagram.com', // new instagram
 	'instagram.com',
 	'dropboxusercontent.com',
 	'tumblr.com',
@@ -59,7 +62,13 @@ if(isset($_REQUEST['ewpt_force']) && !defined('FS_METHOD')) {
 }
 
 
+// cURL followlocation switch
+$followloc = (!ini_get('open_basedir') && !ini_get('safe_mode')) ? true : false; 
+define('EWPT_FOLLOWLOCATION', $followloc);
+
+
 $error_prefix = 'Easy WP Thumbs v'.EWPT_VER.' - '; 
+
 
 //////////////////////////////////////////////////////////////
 // if not exist - load WP functions
@@ -84,7 +93,18 @@ if(!function_exists('get_filesystem_method')) {
 	if(!file_exists(ABSPATH . 'wp-admin/includes/file.php')) {die('<p>'.$error_prefix. 'file.php file not found</p>');}
 	else {require_once(ABSPATH . 'wp-admin/includes/file.php');}	
 }
+
+/* Check minimum WP version - 3.5 */
+global $wp_version;
+if(version_compare($wp_version, '3.5', '<=')) {
+	die('Easy WP Thumbs - minimum requirement WordPress v3.5');
+}
+
+
+
 /////////////////////////////////////////////////////////////////////////////////////
+
+
 
 
 //////////////////////////////////////////////////////
@@ -114,7 +134,7 @@ function ewpt_block_external_leechers() {
 
 // manage browser cache for remote thumbs
 function ewpt_manage_browser_cache($img_path, $method, $fresh_img = false){
-
+	
 	if(!empty($_SERVER['HTTP_IF_MODIFIED_SINCE']) && $method == 'direct'){
 		// file last modification date
 		$mtime = @filemtime($img_path);
@@ -149,712 +169,430 @@ function ewpt_standard_caching_headers() {
 }
 
 
+
 /////////////////////////////////////////////////////////////////////////////////////
+
 
 
 //////////////////////////////////////////////////////
 // INTEGRATIVE CLASSES ///////////////////////////////
 //////////////////////////////////////////////////////
 
-// extend the WP 3.5 editor classes to get the image resource directly without headers
-if( (float)substr(get_bloginfo('version'), 0, 3) >= 3.5) {
-	$editor = _wp_image_editor_choose();
+// extend WP 3.5 editor classes to get image resources directly
 
-	if($editor == 'WP_Image_Editor_Imagick') {
-		class ewpt_editor_extension extends WP_Image_Editor_Imagick {
-			
-			/**
-			 * Given the mime-type returns the last parameter for the imagick functions 
-			 */
-			private function ewpt_mime_to_ext($mime) {
-				$arr = explode('/', $mime);
-				return end($arr);	
-			}
-			
-			
-			/**
-			 * Check if a valid imagick resource exists
-			 */
-			public function ewpt_is_valid_resource() {
-				return (isset($this->editor) && is_object($this->editor->image)) ? true : false;
-			}
-			
-			
-			/**
-			 * Manage the resize and/or crop using the Timthumb v2.8.10 structure with imagick functions
-			 * © Luca Montanari
-			 *
-			 * @param int $width width of the resized image
-			 * @param int $height height of the resized image
-			 * @param int $rs resize method
-			 * @param string $a cropping alignment 
-			 * @param string $mime mime-type of the image
-			 * @param string $canvas_color canvas background color 
-			 */
-			public function ewpt_tt_management($width, $height, $rs, $a, $mime, $canvas_color) {
-
-				// get standard input properties		
-				$new_width =  (int) abs ($width);
-				$new_height = (int) abs ($height);
-				$zoom_crop = (int) $rs;
-				$align = $a;
+if(_wp_image_editor_choose() == 'WP_Image_Editor_Imagick') {
+	class ewpt_editor_extension extends WP_Image_Editor_Imagick {
 		
-				// Get original width and height
-				$size = $this->get_size();
-				$width = $size['width'];
-				$height = $size['height'];
-				$origin_x = 0;
-				$origin_y = 0;
-				
-				// set the canvas background color
-				if($mime != 'image/png') {
-					$pattern = '/^#[a-f0-9]{6}$/i';
-					if (strlen($canvas_color) == 3) { //if is 3-char notation, edit string into 6-char notation
-						$canvas_color = str_repeat(substr($canvas_color, 0, 1), 2) . str_repeat(substr($canvas_color, 1, 1), 2) . str_repeat(substr($canvas_color, 2, 1), 2); 
-					} 
-					$canvas_color = '#' . $canvas_color;
-					
-					if (strlen($canvas_color) != 7 || !preg_match($pattern, $canvas_color)) {
-						$canvas_color = '#FFFFFF'; // on error return default canvas color
-					}	
-
-					$this->image->setimagebackgroundcolor($canvas_color);	
-				}
-				else {$canvas_color = 'transparent';}
-
-				// stretch the image to the size
-				if($zoom_crop == 0) {
-					$this->image->resizeimage($new_width, $new_height, imagick::FILTER_POINT, 0, FALSE ); 
-				}
-				
-				// only scale image
-				if ($zoom_crop == 3) {
-					$this->image->resizeimage($new_width, $new_height, imagick::FILTER_POINT, 0, true);	
-				}
-				
-				// scale and add borders
-				if($zoom_crop == 2) {
-					//scale 
-					$ratio = min($new_width/$width, $new_height/$height);
-					$_new_w = round($width * $ratio);
-					$_new_h = round($height * $ratio); 
-					$this->image->resizeimage($new_width, $new_height, imagick::FILTER_POINT, 0, true);
-					
-					if($_new_w == $new_width) {$border_w = 0;}
-					else {$border_w = ceil(($new_width - $_new_w) / 2);}
-					
-					if($_new_h == $new_height) {$border_h = 0;}
-					else {$border_h = ceil(($new_height - $_new_h) / 2);}
-					
-					$this->image->borderImage($canvas_color, $border_w, $border_h);
-				}
-				
-				// scale and crop
-				else {
-					//scale 
-					$ratio = max($new_width/$width, $new_height/$height);
-					$_new_w = ceil($width * $ratio);
-					$_new_h = ceil($height * $ratio); 
-					$this->image->scaleimage($_new_w, $_new_h, true);
-
-
-					// coordinates to cut from center
-					if($_new_w == $new_width) {$src_x = 0;}
-					else {$src_x = floor(($_new_w - $new_width) / 2);}
-					
-					if($_new_h == $new_height) {$src_y = 0;}
-					else {$src_y = floor(($_new_h - $new_height) / 2);}
-					
-					// positional cropping!
-					if ($align) {
-						if (strpos ($align, 't') !== false) {
-							$src_y = 0;
-						}
-						if (strpos ($align, 'b') !== false) {
-							$src_y = $_new_h - $new_height;
-						}
-						if (strpos ($align, 'l') !== false) {
-							$src_x = 0;
-						}
-						if (strpos ($align, 'r') !== false) {
-							$src_x = $_new_w - $new_width;
-						}
-					}
-
-					$this->crop($src_x, $src_y, $new_width, $new_height);
-				}
-
-
-				$this->update_size();
-				
-				return true;
-			}
-
+		// public var to get true mime type
+		public $pub_mime_type; 
+		
+		// image binary data used to get mime type
+		private $img_binary_data;
+		
+		
+		/* setup Imagick object  */
+		public function __construct($data) {
+			$this->img_binary_data = $data;
 			
-			/**
-			 * Apply efects to the image
-			 * @param array $fx_array array of effects
-			 */
-			public function ewpt_img_fx($fx_array) {
-				if(!is_array($fx_array)) {return false;}
-				
-				foreach($fx_array as $fx) {
-					switch($fx) {
-						case 'blur'		: $this->image->blurImage(1,3); break;
-						case 'grayscale': $this->image->modulateImage(100,0,100); break;	
-					}
-				}
-				return true;
-			}
-			
-			
-			/**
-			 * Returns stream of current image.
-			 */
-			public function ewpt_img_contents($mime) {
-				$this->image->setImageFormat($this->ewpt_mime_to_ext($mime));
-				echo $this->image->getImageBlob();
-				return true;
-			}
+			$imagick = new Imagick();
+			$imagick->readImageBlob($data);
+			$this->image = $imagick;
 		}
-	}
-	else {
-		class ewpt_editor_extension extends WP_Image_Editor_GD {
+		
+		
+		/**
+		 * Given the mime-type returns the last parameter for the imagick functions 
+		 */
+		private function ewpt_mime_to_ext($mime) {
+			$arr = explode('/', $mime);
+			return end($arr);	
+		}
+		
+		
+		/**
+		 * Check if a valid imagick resource exists
+		 */
+		public function ewpt_is_valid_resource() {
+			return (!is_object($this->image) || !$this->image->valid()) ? false : true;
+		}
+		
+		
+		/**
+		 * setup image data 
+		 */
+		public function ewpt_setup_img_data($guessed_mime = 'image/jpeg') {
+			$uri = 'data://application/octet-stream;base64,'  . base64_encode($this->img_binary_data);
+         	$data = @getimagesize($uri);
 			
-			/**
-			 * Apply efects to the image
-			 * @param array $fx_array array of effects
-			 */
-			public function ewpt_img_fx($fx_array) {
-				if(!is_array($fx_array)) {return false;}
-				
-				foreach($fx_array as $fx) {
-					switch($fx) {
-						case 'blur'		: imagefilter($this->image, IMG_FILTER_GAUSSIAN_BLUR); break;
-						case 'grayscale': imagefilter($this->image, IMG_FILTER_GRAYSCALE); break;	
-					}
-				}
-				return true;
-			}
+			parent::update_size($data[0], $data[1]);
 			
+			$this->mime_type = $data['mime'];
+			$this->pub_mime_type = $this->mime_type;
+		}
+		
+		
+		/**
+		 * Manage the resize and/or crop using the Timthumb v2.8.10 structure with imagick functions
+		 * © Luca Montanari
+		 *
+		 * @param int $width width of the resized image
+		 * @param int $height height of the resized image
+		 * @param int $rs resize method
+		 * @param string $a cropping alignment 
+		 * @param string $mime mime-type of the image
+		 * @param string $canvas_color canvas background color 
+		 */
+		public function ewpt_tt_management($width, $height, $rs, $a, $mime, $canvas_color) {
+
+			// get standard input properties		
+			$new_width =  (int) abs($width);
+			$new_height = (int) abs($height);
+			$zoom_crop = (int) $rs;
+			$align = $a;
+	
+			// Get original width and height
+			$size = $this->get_size();
+			$width = $size['width'];
+			$height = $size['height'];
+			$origin_x = 0;
+			$origin_y = 0;
 			
-			/**
-			 * Check if a valid imagick resource exists - in this case returns always true
-			 */
-			public function ewpt_is_valid_resource() {
-				return true;
-			}
-			
-			
-			/**
-			 * Manage the resize and/or crop using the Timthumb v2.8.10 script
-			 * © Ben Gillbanks and Mark Maunder
-			 *
-			 * @param int $width width of the resized image
-			 * @param int $height height of the resized image
-			 * @param int $rs resize method
-			 * @param string $a cropping alignment 
-			 * @param string $mime mime-type of the image
-			 * @param string $canvas_color background color of the image
-			 */
-			public function ewpt_tt_management($width, $height, $rs, $a, $mime, $canvas_color) {
-				// get standard input properties		
-				$new_width =  (int) abs ($width);
-				$new_height = (int) abs ($height);
-				$zoom_crop = (int) $rs;
-				$align = $a;
-		
-				// existing image resource
-				$image = $this->image;
-		
-				// Get original width and height
-				$size = $this->get_size();
-				$width = $size['width'];
-				$height = $size['height'];
-				$origin_x = 0;
-				$origin_y = 0;
-		
-		
-				// only scale image
-				if ($zoom_crop == 3) {
-		
-					$final_height = $height * ($new_width / $width);
-		
-					if ($final_height > $new_height) {
-						$new_width = $width * ($new_height / $height);
-					} else {
-						$new_height = $final_height;
-					}
-		
-				}
-		
-				// create a new true color image
-				$canvas = imagecreatetruecolor ($new_width, $new_height);
-				imagealphablending ($canvas, false);
-		
+			// set the canvas background color
+			if($mime == 'image/jpeg' || $zoom_crop == 2) {
+				$pattern = '/^#[a-f0-9]{6}$/i';
 				if (strlen($canvas_color) == 3) { //if is 3-char notation, edit string into 6-char notation
-					$canvas_color =  str_repeat(substr($canvas_color, 0, 1), 2) . str_repeat(substr($canvas_color, 1, 1), 2) . str_repeat(substr($canvas_color, 2, 1), 2); 
-				} else if (strlen($canvas_color) != 6) {
-					$canvas_color = 'FFFFFF'; // on error return default canvas color
-				}
+					$canvas_color = str_repeat(substr($canvas_color, 0, 1), 2) . str_repeat(substr($canvas_color, 1, 1), 2) . str_repeat(substr($canvas_color, 2, 1), 2); 
+				} 
+				$canvas_color = '#' . $canvas_color;
 				
-				$canvas_color_R = hexdec (substr ($canvas_color, 0, 2));
-				$canvas_color_G = hexdec (substr ($canvas_color, 2, 2));
-				$canvas_color_B = hexdec (substr ($canvas_color, 4, 2));
-		
-				// Create a new transparent color for image
-				if($mime == 'image/png'){ 
-					$color = imagecolorallocatealpha ($canvas, $canvas_color_R, $canvas_color_G, $canvas_color_B, 127);		
-				}else{
-					$color = imagecolorallocatealpha ($canvas, $canvas_color_R, $canvas_color_G, $canvas_color_B, 0);
-				}
-		
-				// Completely fill the background of the new image with allocated color.
-				imagefill ($canvas, 0, 0, $color);
-		
-		
-				// scale down and add borders
-				if ($zoom_crop == 2) {
-		
-					$final_height = $height * ($new_width / $width);
-		
-					if ($final_height > $new_height) {
-		
-						$origin_x = $new_width / 2;
-						$new_width = $width * ($new_height / $height);
-						$origin_x = round ($origin_x - ($new_width / 2));
-		
-					} else {
-		
-						$origin_y = $new_height / 2;
-						$new_height = $final_height;
-						$origin_y = round ($origin_y - ($new_height / 2));
-					}
-				}
-		
-		
-				// Restore transparency blending
-				imagesavealpha ($canvas, true);
-		
-				if ($zoom_crop > 0) {
-		
-					$src_x = $src_y = 0;
-					$src_w = $width;
-					$src_h = $height;
-		
-					$cmp_x = $width / $new_width;
-					$cmp_y = $height / $new_height;
-		
-					// calculate x or y coordinate and width or height of source
-					if ($cmp_x > $cmp_y) {
-		
-						$src_w = round ($width / $cmp_x * $cmp_y);
-						$src_x = round (($width - ($width / $cmp_x * $cmp_y)) / 2);
-		
-					} else if ($cmp_y > $cmp_x) {
-		
-						$src_h = round ($height / $cmp_y * $cmp_x);
-						$src_y = round (($height - ($height / $cmp_y * $cmp_x)) / 2);
-		
-					}
-		
-					// positional cropping!
-					if ($align) {
-						if (strpos ($align, 't') !== false) {
-							$src_y = 0;
-						}
-						if (strpos ($align, 'b') !== false) {
-							$src_y = $height - $src_h;
-						}
-						if (strpos ($align, 'l') !== false) {
-							$src_x = 0;
-						}
-						if (strpos ($align, 'r') !== false) {
-							$src_x = $width - $src_w;
-						}
-					}
-					
-					@imagecopyresampled ($canvas, $image, $origin_x, $origin_y, $src_x, $src_y, $new_width, $new_height, $src_w, $src_h);
-					
-				} else {
-					@imagecopyresampled ($canvas, $image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
-				}
+				if (strlen($canvas_color) != 7 || !preg_match($pattern, $canvas_color)) {
+					$canvas_color = '#FFFFFF'; // on error return default canvas color
+				}	
+
+				$this->image->setimagebackgroundcolor($canvas_color);	
+			}
+			else {$canvas_color = 'transparent';}
+
+			// if GIF - take first frame
+			if($mime == 'image/gif') {$this->image = $this->image->coalesceImages();} 
+						
+
+			// stretch the image to the size
+			if($zoom_crop == 0) {
+				$this->image->resizeimage($new_width, $new_height, imagick::FILTER_POINT, 0, false); 
+			}
+
+			// scale and add borders
+			else if($zoom_crop == 2) {
+				//scale 
+				$ratio = min($new_width/$width, $new_height/$height);
+				$_new_w = round($width * $ratio);
+				$_new_h = round($height * $ratio); 
+				$this->image->resizeimage($new_width, $new_height, imagick::FILTER_POINT, 0, true);
 				
-				//Straight from Wordpress core code. Reduces filesize by up to 70% for PNG's
-				if ( ($mime == 'image/png' || $mime == 'image/gif') && function_exists('imageistruecolor') && !imageistruecolor( $image ) && imagecolortransparent( $image ) > 0 ){
-					imagetruecolortopalette( $canvas, false, imagecolorstotal( $image ) );
-				}
+				if($_new_w == $new_width) {$border_w = 0;}
+				else {$border_w = ceil(($new_width - $_new_w) / 2);}
 				
-				$this->image = $canvas;
-				$this->update_size();
+				if($_new_h == $new_height) {$border_h = 0;}
+				else {$border_h = ceil(($new_height - $_new_h) / 2);}
 				
-				return true;
-			}	
+				$this->image->borderImage($canvas_color, $border_w, $border_h);
+			}
 			
+			// only scale image
+			else if ($zoom_crop == 3) {
+				$this->image->resizeimage($new_width, $new_height, imagick::FILTER_POINT, 0, true);	
+			}
 			
-			/**
-			 * Returns stream of current image.
-			 */
-			public function ewpt_img_contents($mime) {
-				switch ($mime) {
-					case 'image/png':	return imagepng($this->image);
-					case 'image/gif': 	return imagegif($this->image);
-					default: 			return imagejpeg($this->image, null, $this->quality);
+			// case #1 - scale and crop
+			else {
+				//scale 
+				$ratio = max($new_width/$width, $new_height/$height);
+				$_new_w = ceil($width * $ratio);
+				$_new_h = ceil($height * $ratio); 
+				$this->image->scaleimage($_new_w, $_new_h, true);
+
+
+				// coordinates to cut from center
+				if($_new_w == $new_width) {$src_x = 0;}
+				else {$src_x = floor(($_new_w - $new_width) / 2);}
+				
+				if($_new_h == $new_height) {$src_y = 0;}
+				else {$src_y = floor(($_new_h - $new_height) / 2);}
+				
+				// positional cropping!
+				if ($align) {
+					if (strpos ($align, 't') !== false) {
+						$src_y = 0;
+					}
+					if (strpos ($align, 'b') !== false) {
+						$src_y = $_new_h - $new_height;
+					}
+					if (strpos ($align, 'l') !== false) {
+						$src_x = 0;
+					}
+					if (strpos ($align, 'r') !== false) {
+						$src_x = $_new_w - $new_width;
+					}
 				}
-			}	
-		}	
-	}
-}
 
+				$this->crop($src_x, $src_y, $new_width, $new_height);
+			}
 
-// GD image editor class for WP < 3.5 (methods taken from WP 3.5)
-class ewpt_old_wp_img_editor {
-	
-	// image source
-	private $file = false;
-	
-	// GD image object
-	public $image = false; 
-	
-	protected $size = null;
-	protected $mime_type = null;
-	protected $default_mime_type = 'image/jpeg';
-	protected $quality = 80;
-
-	
-	// create a GD resource
-	public function __construct($img_src) {
-		$this->file = $img_src;
-		
-		if ( $this->image )
+			$this->update_size();
+			
 			return true;
-
-		if ( ! is_file( $this->file ) && ! preg_match( '|^https?://|', $this->file ) )
-			return new WP_Error( 'error_loading_image', __('File doesn&#8217;t exist?'), $this->file );
-
-		// Set artificially high because GD uses uncompressed images in memory
-		@ini_set('memory_limit', '256M');
-		if (!ini_get('allow_url_fopen')) {
-			@ini_set('allow_url_fopen', 1);
 		}
+
 		
-		// if is urlenceded - decode
-		if(strpos($this->file, '%3F') !== false) {
-			$this->file = urldecode($this->file);	
-		}
-		
-		// get image 
-		if(!function_exists('curl_init') || !filter_var($this->file, FILTER_VALIDATE_URL)) {
-			$img_data = file_get_contents( $this->file );
+		/**
+		 * Apply efects to the image
+		 * @param array $fx_array array of effects
+		 */
+		public function ewpt_img_fx($fx_array) {
+			if(!is_array($fx_array)) {return false;}
 			
-			// mime type
-			$pos = strrpos($this->file, '.');
-			$ext = strtolower(substr($this->file, $pos));
-			switch($ext) {
-				case '.png'	: $mime = 'image/png'; break;
-				case '.gif'	: $mime = 'image/gif'; break;
-				default		: $mime = 'image/jpeg'; break;
+			foreach($fx_array as $fx) {
+				switch($fx) {
+					case 'blur'		: $this->image->blurImage(1,3); break;
+					case 'grayscale': $this->image->modulateImage(100,0,100); break;	
+				}
 			}
+			return true;
 		}
-		else {
-			$ch = curl_init();
-			curl_setopt($ch, CURLOPT_AUTOREFERER, true);
-			curl_setopt($ch, CURLOPT_HEADER, 0);
-			curl_setopt($ch, CURLOPT_USERAGENT, true);
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-			curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-			curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
-			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
-			curl_setopt($ch, CURLOPT_URL, $this->file);
+		
+		
+		/**
+		 * Returns stream of current image.
+		 */
+		public function ewpt_img_contents() {
+			$this->image->setImageFormat($this->ewpt_mime_to_ext($this->mime_type));
+			echo $this->image->getImageBlob();
+			return true;
+		}
+	}
+}
+
+else {	
+	include_once(ABSPATH . 'wp-includes/class-wp-image-editor-gd.php');
+
+	class ewpt_editor_extension extends WP_Image_Editor_GD {
+		
+		// public var to get true mime type
+		public $pub_mime_type; 
+		
+		// image binary data used to get mime type
+		private $img_binary_data;
+		
+		
+		/* setup GD object  */
+		public function __construct($data) {
+			 $this->img_binary_data = $data;
+			 $this->image = imagecreatefromstring($data);
+		}
+		
+		
+		/**
+		 * Apply efects to the image
+		 * @param array $fx_array array of effects
+		 */
+		public function ewpt_img_fx($fx_array) {
+			if(!is_array($fx_array)) {return false;}
 			
-			$img_data = curl_exec($ch);
-    		$mime = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-			curl_close($ch);	
-		}
-		
-		$this->image = imagecreatefromstring( $img_data );
-
-		if ( ! is_resource( $this->image ) )
-			return new WP_Error( 'invalid_image', __('File is not an image.'), $this->file );
-
-		// image sizes
-		$img_x = imagesx($this->image);
-		$img_y = imagesy($this->image);
-		
-		if ( !$img_x ) return new WP_Error( 'invalid_image', __('Could not read image size.'), $this->file );
-		$this->update_size($img_x, $img_y);
-		
-		// image mime type
-		$this->mime_type = $mime;
-		return true;
-	}
-	
-	
-	/**
-	 * Gets dimensions of image.
-	 *
-	 * @return array {'width'=>int, 'height'=>int}
-	 */
-	public function get_size() {
-		return $this->size;
-	}
-	
-	
-	/**
-	 * Sets or updates current image size.
-	 *
-	 * @param int $width
-	 * @param int $height
-	 */
-	protected function update_size( $width = false, $height = false ) {
-		if ( ! $width )
-			$width = imagesx( $this->image );
-
-		if ( ! $height )
-			$height = imagesy( $this->image );
-
-		$this->size = array(
-			'width' => (int) $width,
-			'height' => (int) $height
-		);
-		return true;
-	}
-	
-	
-	/**
-	 * Sets Image Compression quality on a 1-100% scale.
-	 *
-	 * @param int $quality Compression Quality. Range: [1,100]
-	 * @return boolean
-	 */
-	public function set_quality($quality) {
-		if(!$quality) {return false;}
-		else {$this->quality = (int)$quality;}
-		
-		return true;
-	}
-	
-	
-	/**
-	 * Convert JPG 1/100 quality to the PNG one
-	 * @LCweb
-	 */
-	private function png_quality() {
-		$val = (int)$this->quality;
-		if($val < 10) {$val = 90;}
-		
-		$png_val = (int) (floor(($val * -1)) / 10 + 10);
-		return $png_val;
-	}
-	
-	
-	/**
-	 * Apply efects to the image
-	 * @param array $fx_array array of effects
-	 */
-	public function ewpt_img_fx($fx_array) {
-		if(!is_array($fx_array)) {return false;}
-		
-		foreach($fx_array as $fx) {
-			switch($fx) {
-				case 'blur'		: imagefilter($this->image, IMG_FILTER_GAUSSIAN_BLUR); break;
-				case 'grayscale': imagefilter($this->image, IMG_FILTER_GRAYSCALE); break;	
+			foreach($fx_array as $fx) {
+				switch($fx) {
+					case 'blur'		: imagefilter($this->image, IMG_FILTER_GAUSSIAN_BLUR); break;
+					case 'grayscale': imagefilter($this->image, IMG_FILTER_GRAYSCALE); break;	
+				}
 			}
+			return true;
 		}
-		return true;
-	}
-
+		
+		
+		/**
+		 * Check if a valid imagick resource exists - in this case returns always true
+		 */
+		public function ewpt_is_valid_resource() {
+			 return (!is_resource($this->image)) ? false : true;
+		}
+		
+		
+		/**
+		 * setup image data 
+		 */
+		public function ewpt_setup_img_data($guessed_mime = 'image/jpeg') {
+			$uri = 'data://application/octet-stream;base64,'  . base64_encode($this->img_binary_data);
+         	$data = @getimagesize($uri);
+			
+			parent::update_size($data[0], $data[1]);
+			
+			$this->mime_type = $data['mime'];
+			$this->pub_mime_type = $this->mime_type;
+		}
+		
+		
+		/**
+		 * Manage the resize and/or crop using the Timthumb v2.8.10 script
+		 * © Ben Gillbanks and Mark Maunder
+		 *
+		 * @param int $width width of the resized image
+		 * @param int $height height of the resized image
+		 * @param int $rs resize method
+		 * @param string $a cropping alignment 
+		 * @param string $mime mime-type of the image
+		 * @param string $canvas_color background color of the image
+		 */
+		public function ewpt_tt_management($width, $height, $rs, $a, $mime, $canvas_color) {
+			// get standard input properties		
+			$new_width =  (int) abs ($width);
+			$new_height = (int) abs ($height);
+			$zoom_crop = (int) $rs;
+			$align = $a;
 	
-	/**
-	 * Manage the resize and/or crop using the Timthumb v2.8.10 script
-	 * © Ben Gillbanks and Mark Maunder
-	 *
-	 * @param int $width width of the resized image
-	 * @param int $height height of the resized image
-	 * @param int $rs resize method
-	 * @param string $a cropping alignment 
-	 * @param string $mime mime-type of the image
-	 * @param string $canvas_color canvas background color 
-	 */
-	public function ewpt_tt_management($width, $height, $rs, $a, $mime, $canvas_color) {
-		// get standard input properties		
-		$new_width =  (int) abs ($width);
-		$new_height = (int) abs ($height);
-		$zoom_crop = (int) $rs;
-		$align = $a;
-
-		// existing image resource
-		$image = $this->image;
-
-		// Get original width and height
-		$size = $this->get_size();
-		$width = $size['width'];
-		$height = $size['height'];
-		$origin_x = 0;
-		$origin_y = 0;
-
-
-		// only scale image
-		if ($zoom_crop == 3) {
-
-			$final_height = $height * ($new_width / $width);
-
-			if ($final_height > $new_height) {
-				$new_width = $width * ($new_height / $height);
+			// existing image resource
+			$image = $this->image;
+	
+			// Get original width and height
+			$size = $this->get_size();
+			$width = $size['width'];
+			$height = $size['height'];
+			$origin_x = 0;
+			$origin_y = 0;
+	
+	
+			// only scale image
+			if ($zoom_crop == 3) {
+	
+				$final_height = $height * ($new_width / $width);
+	
+				if ($final_height > $new_height) {
+					$new_width = $width * ($new_height / $height);
+				} else {
+					$new_height = $final_height;
+				}
+	
+			}
+	
+			// create a new true color image
+			$canvas = imagecreatetruecolor ($new_width, $new_height);
+			imagealphablending ($canvas, false);
+	
+			if (strlen($canvas_color) == 3) { //if is 3-char notation, edit string into 6-char notation
+				$canvas_color =  str_repeat(substr($canvas_color, 0, 1), 2) . str_repeat(substr($canvas_color, 1, 1), 2) . str_repeat(substr($canvas_color, 2, 1), 2); 
+			} else if (strlen($canvas_color) != 6) {
+				$canvas_color = 'FFFFFF'; // on error return default canvas color
+			}
+			
+			$canvas_color_R = hexdec (substr ($canvas_color, 0, 2));
+			$canvas_color_G = hexdec (substr ($canvas_color, 2, 2));
+			$canvas_color_B = hexdec (substr ($canvas_color, 4, 2));
+	
+			// Create a new transparent color for image
+			if($mime == 'image/jpeg' || $zoom_crop == 2) {
+				$color = imagecolorallocatealpha ($canvas, $canvas_color_R, $canvas_color_G, $canvas_color_B, 127);		
+			}else{
+				$color = imagecolorallocatealpha ($canvas, $canvas_color_R, $canvas_color_G, $canvas_color_B, 0);
+			}
+	
+			// Completely fill the background of the new image with allocated color.
+			imagefill ($canvas, 0, 0, $color);
+	
+	
+			// scale down and add borders
+			if($zoom_crop == 2) {
+				$final_height = $height * ($new_width / $width);
+	
+				if ($final_height > $new_height) {
+	
+					$origin_x = $new_width / 2;
+					$new_width = $width * ($new_height / $height);
+					$origin_x = round ($origin_x - ($new_width / 2));
+	
+				} else {
+	
+					$origin_y = $new_height / 2;
+					$new_height = $final_height;
+					$origin_y = round ($origin_y - ($new_height / 2));
+				}
+			}
+	
+	
+			// Restore transparency blending
+			imagesavealpha($canvas, true);
+	
+			if($zoom_crop > 0) {
+	
+				$src_x = $src_y = 0;
+				$src_w = $width;
+				$src_h = $height;
+	
+				$cmp_x = $width / $new_width;
+				$cmp_y = $height / $new_height;
+	
+				// calculate x or y coordinate and width or height of source
+				if ($cmp_x > $cmp_y) {
+	
+					$src_w = round ($width / $cmp_x * $cmp_y);
+					$src_x = round (($width - ($width / $cmp_x * $cmp_y)) / 2);
+	
+				} else if ($cmp_y > $cmp_x) {
+	
+					$src_h = round ($height / $cmp_y * $cmp_x);
+					$src_y = round (($height - ($height / $cmp_y * $cmp_x)) / 2);
+	
+				}
+	
+				// positional cropping!
+				if ($align) {
+					if (strpos ($align, 't') !== false) {
+						$src_y = 0;
+					}
+					if (strpos ($align, 'b') !== false) {
+						$src_y = $height - $src_h;
+					}
+					if (strpos ($align, 'l') !== false) {
+						$src_x = 0;
+					}
+					if (strpos ($align, 'r') !== false) {
+						$src_x = $width - $src_w;
+					}
+				}
+				
+				@imagecopyresampled ($canvas, $image, $origin_x, $origin_y, $src_x, $src_y, $new_width, $new_height, $src_w, $src_h);
+				
 			} else {
-				$new_height = $final_height;
+				@imagecopyresampled ($canvas, $image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
 			}
-
-		}
-
-		// create a new true color image
-		$canvas = imagecreatetruecolor ($new_width, $new_height);
-		imagealphablending ($canvas, false);
-
-		if (strlen($canvas_color) == 3) { //if is 3-char notation, edit string into 6-char notation
-			$canvas_color =  str_repeat(substr($canvas_color, 0, 1), 2) . str_repeat(substr($canvas_color, 1, 1), 2) . str_repeat(substr($canvas_color, 2, 1), 2); 
-		} else if (strlen($canvas_color) != 6) {
-			$canvas_color = 'FFFFFF'; // on error return default canvas color
-		}
-
-		$canvas_color_R = hexdec (substr ($canvas_color, 0, 2));
-		$canvas_color_G = hexdec (substr ($canvas_color, 2, 2));
-		$canvas_color_B = hexdec (substr ($canvas_color, 4, 2));
-
-		// Create a new transparent color for image
-		if($mime == 'image/png'){ 
-			$color = imagecolorallocatealpha ($canvas, $canvas_color_R, $canvas_color_G, $canvas_color_B, 127);		
-		}else{
-			$color = imagecolorallocatealpha ($canvas, $canvas_color_R, $canvas_color_G, $canvas_color_B, 0);
-		}
-
-		// Completely fill the background of the new image with allocated color.
-		imagefill ($canvas, 0, 0, $color);
-
-
-		// scale down and add borders
-		if ($zoom_crop == 2) {
-
-			$final_height = $height * ($new_width / $width);
-
-			if ($final_height > $new_height) {
-
-				$origin_x = $new_width / 2;
-				$new_width = $width * ($new_height / $height);
-				$origin_x = round ($origin_x - ($new_width / 2));
-
-			} else {
-
-				$origin_y = $new_height / 2;
-				$new_height = $final_height;
-				$origin_y = round ($origin_y - ($new_height / 2));
-			}
-		}
-
-
-		// Restore transparency blending
-		imagesavealpha ($canvas, true);
-
-		if ($zoom_crop > 0) {
-
-			$src_x = $src_y = 0;
-			$src_w = $width;
-			$src_h = $height;
-
-			$cmp_x = $width / $new_width;
-			$cmp_y = $height / $new_height;
-
-			// calculate x or y coordinate and width or height of source
-			if ($cmp_x > $cmp_y) {
-
-				$src_w = round ($width / $cmp_x * $cmp_y);
-				$src_x = round (($width - ($width / $cmp_x * $cmp_y)) / 2);
-
-			} else if ($cmp_y > $cmp_x) {
-
-				$src_h = round ($height / $cmp_y * $cmp_x);
-				$src_y = round (($height - ($height / $cmp_y * $cmp_x)) / 2);
-
-			}
-
-			// positional cropping!
-			if ($align) {
-				if (strpos ($align, 't') !== false) {
-					$src_y = 0;
-				}
-				if (strpos ($align, 'b') !== false) {
-					$src_y = $height - $src_h;
-				}
-				if (strpos ($align, 'l') !== false) {
-					$src_x = 0;
-				}
-				if (strpos ($align, 'r') !== false) {
-					$src_x = $width - $src_w;
-				}
-			}
-
-			@imagecopyresampled ($canvas, $image, $origin_x, $origin_y, $src_x, $src_y, $new_width, $new_height, $src_w, $src_h);
 			
-		} else {
-
-			// copy and resize part of an image with resampling
-			@imagecopyresampled ($canvas, $image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
-		}
+			//Straight from Wordpress core code. Reduces filesize by up to 70% for PNG's
+			if ( ($mime == 'image/png' || $mime == 'image/gif') && function_exists('imageistruecolor') && !imageistruecolor( $image ) && imagecolortransparent( $image ) > 0 ){
+				imagetruecolortopalette( $canvas, false, imagecolorstotal( $image ) );
+			}
+			
+			$this->image = $canvas;
+			$this->update_size();
+			
+			return true;
+		}	
 		
-		//Straight from Wordpress core code. Reduces filesize by up to 70% for PNG's
-		if ( ($mime == 'image/png' || $mime == 'image/gif') && function_exists('imageistruecolor') && !imageistruecolor( $image ) && imagecolortransparent( $image ) > 0 ){
-			imagetruecolortopalette( $canvas, false, imagecolorstotal( $image ) );
-		}
 		
-		$this->image = $canvas;
-		$this->update_size();
-		
-		return true;
-	}	
-
-
-	/**
-	 * Returns stream of current image.
-	 * @lcweb
-	 */
-	public function ewpt_img_contents($mime) {
-		switch ($mime) {
-			case 'image/png':	return imagepng($this->image);
-			case 'image/gif': 	return imagegif($this->image);
-			default: 			return imagejpeg($this->image, null, $this->quality);
-		}
-	}	
-	
-	
-	/**
-	 * Returns stream of current image.
-	 * @param string $mime_type
-	 */
-	public function stream($mime_type) {
-		switch ( $mime_type ) {
-			case 'image/png':
-				header( 'Content-Type: image/png');
-				return imagepng( $this->image, null, $this->png_quality());
-			case 'image/gif':
-				header( 'Content-Type: image/gif' );
-				return imagegif( $this->image );
-			default:
-				header( 'Content-Type: image/jpeg' );
-				return imagejpeg( $this->image, null, $this->quality );
-		}
-	}
-	
-	
-	function __destruct() {
-		if ( $this->image ) {
-			// we don't need the original in memory anymore
-			imagedestroy( $this->image );
-		}
+		/**
+		 * Returns stream of current image.
+		 */
+		public function ewpt_img_contents() {
+			switch($this->mime_type) {
+				case 'image/png':	return imagepng($this->image);
+				case 'image/gif': 	return imagegif($this->image);
+				default: 			return imagejpeg($this->image, null, $this->quality);
+			}
+		}	
 	}	
 }
+
+
 
 /////////////////////////////////////////////////////////////////////////////////////
+
 
 
 //////////////////////////////////////////////////////
@@ -1233,7 +971,7 @@ class ewpt_connect {
 	  * @return (bool) true if file is saved correctly
 	  */
 	public function create_file($filename, $contents) {
-		if(trim($filename) == '' || trim($contents) == '') {
+		if(empty($filename) || empty($contents)) {
 			$this->errors[] = __('Filename or contents are missing');
 			return false;	
 		}
@@ -1314,6 +1052,57 @@ class easy_wp_thumbs extends ewpt_connect {
 		'fx'	=> array(),	// effects
 		'rs'	=> 1	// (bool) resize/crop
 	);
+	
+	
+	/**
+	  * Load the image into the editor
+	  * @param string $img_src image path/url
+	  */
+	private function load_image($img_src) {
+		// get data
+		if(strpos( str_replace('https://', 'http://', strtolower($img_src)), 'http://') !== false || filter_var($img_src, FILTER_VALIDATE_URL)) {
+			$data = wp_remote_get($img_src, array('timeout' => 8, 'redirection' => 3));
+
+			// nothing got - use cURL 
+	        if(is_wp_error($data) || 200 != wp_remote_retrieve_response_code($data) || empty($data['body'])) {
+				$ch = curl_init();
+				curl_setopt($ch, CURLOPT_AUTOREFERER, true);
+				curl_setopt($ch, CURLOPT_HEADER, 0);
+				curl_setopt($ch, CURLOPT_USERAGENT, true);
+				curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+				curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+				curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+				curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
+				curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+				curl_setopt($ch, CURLOPT_URL, $img_src);
+				curl_setopt($ch, CURLOPT_FOLLOWLOCATION, EWPT_FOLLOWLOCATION);
+				
+				$data = curl_exec($ch);
+				$mime = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
+				curl_close($ch);	
+	        }
+			else {
+				$data = $data['body'];	
+			}
+		}
+		else {
+			$data = @file_get_contents($img_src);		
+		}
+		
+		$this->editor = new ewpt_editor_extension($data);
+		
+		// check the resource and eventually uses the GD library
+		if($this->editor->ewpt_is_valid_resource() ) {
+			$this->editor->ewpt_setup_img_data();	
+			$this->mime = $this->editor->pub_mime_type; // safe mime
+			return true;	
+		}
+		else {
+			$this->errors[] = 'WP image editor - Invalid image data';
+			return false;
+		}
+	}
+	
 
 	/**
 	  * @param int/string $img_src could be the image ID or the image path/url
@@ -1321,8 +1110,6 @@ class easy_wp_thumbs extends ewpt_connect {
 	  * @param bool $stream (optional) true to stream the image insead of returning the URL (TimThumb-like usage)
 	  */
 	public function get_thumb($img_src, $params = false, $stream = false) {
-		// clean url parameters
-		//$img_src = preg_replace('/\\?.*/', '', $img_src);
 		
 		// connect to WP filesystem
 		if(!$this->is_ready()) {return false;}
@@ -1360,8 +1147,8 @@ class easy_wp_thumbs extends ewpt_connect {
 		}
 		
 		//// use the wp image editor
-		if( !$this->load_image($img_src) ) {return false;}
-		
+		if(!$this->load_image($img_src)) {return false;}
+
 		// crop/resize the image
 		$this->resize_from_position();
 		
@@ -1369,40 +1156,11 @@ class easy_wp_thumbs extends ewpt_connect {
 		$this->editor->ewpt_img_fx( $this->params['fx'] );
 		
 		// save the image
-		$img_content = $this->image_contents();
-		if( !$this->create_file($this->cache_img_name, $img_content) ) {return false;}
+		$img_contents = $this->image_contents();
+		if( !$this->create_file($this->cache_img_name, $img_contents) ) {return false;}
 		
 		// return image	
-		return $this->return_image($this->cache_img_name, $stream, $img_content);
-	}
-	
-	
-	/**
-	  * Load the image into the editor
-	  * @param string $img_src image path/url
-	  */
-	private function load_image($img_src) {
-		// if remote call - use faster loading of old-editor
-		if( (float)substr(get_bloginfo('version'), 0, 3) < 3.5 || (function_exists('curl_init') && filter_var($img_src, FILTER_VALIDATE_URL))) {
-			$this->editor = new ewpt_old_wp_img_editor($img_src);
-		} else {
-			$this->editor = new ewpt_editor_extension($img_src);
-			
-			// check the resource and eventually uses the GD library
-			if($this->editor->ewpt_is_valid_resource() ) {
-				$this->editor->load();	
-			}
-			else {
-				$this->editor = new ewpt_old_wp_img_editor($img_src);
-			}
-		}	
-		
-		if(is_wp_error( $this->editor )) {
-			$this->errors[] = 'WP image editor - ' . $this->editor->get_error_message();
-			return false;
-		} else {
-			return true;	
-		}
+		return $this->return_image($this->cache_img_name, $stream, $img_contents);
 	}
 	
 	
@@ -1474,27 +1232,21 @@ class easy_wp_thumbs extends ewpt_connect {
 	  * @param string $img_src image path/url
 	  */
 	private function manage_filename($img_src) {
-
+		
 		// remove the extension
 		$pos = strrpos($img_src, '.');
 		$clean_path = substr($img_src, 0, $pos);
 		
-		// get mime type
-		$this->mime = $this->ewpt_mime_type($img_src, $pos);
-		
+		$this->mime = $this->mime_type($img_src, $pos);
+
 		// extension 
-		switch ( $this->mime ) {
+		switch($this->mime) {
 			case 'image/png': $ext = '.png'; break;
 			case 'image/gif': $ext = '.gif'; break;
 			default			: $ext = '.jpg'; break;
 		}	
-		
-		// if pos > 4 - image has not extension, user full URL 
-		if($pos > 4) {$clean_path = str_replace(array('http://', 'https://'), '', $img_src);}
-			
-		$cache_filename = $this->cache_filename($clean_path);
-		
-		$this->cache_img_name = $cache_filename . $ext;
+
+		$this->cache_img_name = $this->cache_filename($img_src) . $ext;
 		return $this->cache_img_name;
 	}
 	
@@ -1505,7 +1257,7 @@ class easy_wp_thumbs extends ewpt_connect {
 	  * @param string $img_src image path/url
 	  * @param int $pos position of the latest dot (to retrieve the file extension)
 	  */
-	private function ewpt_mime_type($img_name, $pos) {
+	private function mime_type($img_name, $pos) {
 		$ext = substr($img_name, ($pos + 1), 3);
 		$mime_types = array(
 			'jpg|jpe' => 'image/jpeg',
@@ -1516,33 +1268,13 @@ class easy_wp_thumbs extends ewpt_connect {
 		
 		if($ext) {
 			foreach( $extensions as $_extension ) {
-				if ( preg_match( "/{$ext}/i", $_extension ) ) {
+				if(preg_match( "/{$ext}/i", $_extension ) ) {
 					return $mime_types[$_extension];
 				}
 			}
 		}
 		
-		// if nothing is found (no extension in URL - try with a cURL call)
-		if(!filter_var($img_name, FILTER_VALIDATE_URL) === false) {
-			$ch = curl_init();
-			curl_setopt($ch, CURLOPT_AUTOREFERER, true);
-			curl_setopt($ch, CURLOPT_HEADER, 0);
-			curl_setopt($ch, CURLOPT_USERAGENT, true);
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-			curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-			curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-			curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
-			curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
-
-			$ch = curl_init($img_name);
-			curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-			curl_exec($ch);
-			
-			$mime = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-			return (in_array($mime, $mime_types)) ? $mime : false;
-		}
-		
-		return false;
+		return 'image/jpeg'; // if nothing found, guess it's a jpg
 	}
 	
 	
@@ -1552,7 +1284,20 @@ class easy_wp_thumbs extends ewpt_connect {
 	private function cache_filename($img_name) {
 		$crypt_name = md5($img_name);
 		$fx_val = (is_array($this->params['fx'])) ? 1 : 0;
-
+		
+		// seo filename part
+		if(EWPT_SEO_CACHE_FILENAME) {
+			$arr = explode('#', $img_name);		$img_name = $arr[0];
+			$arr = explode('?', $img_name);		$img_name = $arr[0];	
+			$arr = explode('/', $img_name);		$img_name = end($arr);
+			
+			$exts = array('.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG', '.gif', '.GIF');
+			$img_name = str_replace($exts, '', $img_name);
+			
+			$seo_fn = '_'. sanitize_title(str_replace('%', '', urldecode($img_name)));
+		}
+		else {$seo_fn = '';}
+		
 		$cache_name = 
 			$this->params['w'] . 'x' .
 			$this->params['h'] . '_' .
@@ -1561,8 +1306,9 @@ class easy_wp_thumbs extends ewpt_connect {
 			$this->params['a'] . '_' .
 			$this->params['cc'] . '_' .
 			$this->fx_filename .
-			$crypt_name;
-		
+			$crypt_name .
+			$seo_fn;
+
 		return $cache_name;	 
 	}
 	
@@ -1647,7 +1393,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		elseif(!$width && $height) {
 			$width = floor ($size['width'] * ($height / $size['height']));
 		}
-
+		
 		// timthumb like management
 		$this->editor->ewpt_tt_management($width, $height, $this->params['rs'], $this->params['a'], $this->mime, $this->params['cc']);
 
@@ -1662,7 +1408,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		ob_start();
 
 		$this->editor->set_quality( $this->params['q'] );
-		$this->editor->ewpt_img_contents( $this->mime );
+		$this->editor->ewpt_img_contents();
 		
 		$contents = ob_get_contents();
 		ob_end_clean();
@@ -1692,20 +1438,14 @@ class easy_wp_thumbs extends ewpt_connect {
 		}
 		else {
 			// browser cache
-			$cache_fullpath = $this->cache_dir . '/' . $this->cache_img_name;
-			$method = $this->get_method();
-			ewpt_manage_browser_cache($cache_fullpath, $method, $img_contents);
-
-			if($img_contents === false) {
-				$this->load_image($cache_fullpath);
-				return $this->ewpt_stream_img();
-			} 
-			
-			// display image resource that has just been created
-			else { 
-				$this->editor->stream( $this->mime );
+			if($img_contents) {
+				$cache_fullpath = $this->cache_dir . '/' . $this->cache_img_name;
+				$method = $this->get_method();
+				ewpt_manage_browser_cache($cache_fullpath, $method, $img_contents);
 			}
-				
+			
+			// redirect to file
+			header('Location: '. $this->cache_url. '/' . $this->cache_img_name);
 			die();
 		}
 	}	
@@ -1730,7 +1470,7 @@ function easy_wp_thumb($img_src, $width = false, $height = false, $quality = 80,
 		'fx'	=> $fx,
 		'rs'	=> $resize
 	);
-	
+
 	$ewpt = new easy_wp_thumbs(EWPT_DEBUG_VAL);
 	$thumb = $ewpt->get_thumb($img_src, $params);
 	
