@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v2.01
+ * Easy WP thumbs v2.02
  * NOTE: Designed for use with PHP version 5.2 and up. Requires at least WP 3.5
  * 
  * @author Luca Montanari - LCweb
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '2.0'); 			// script version
+define ('EWPT_VER', '2.02'); 			// script version
 define ('EWPT_DEBUG_VAL', ''); 				// wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', false); 		// block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', true);	// allow fetching from any website - set to false to avoid security issues
@@ -220,9 +220,14 @@ if(_wp_image_editor_choose() == 'WP_Image_Editor_Imagick') {
 		/**
 		 * setup image data 
 		 */
-		public function ewpt_setup_img_data($guessed_mime = 'image/jpeg') {
-			$uri = 'data://application/octet-stream;base64,'  . base64_encode($this->img_binary_data);
-         	$data = @getimagesize($uri);
+		public function ewpt_setup_img_data($guessed_mime = 'image/jpeg') {	
+			if(!function_exists('getimagesizefromstring')) {
+				$uri = 'data://application/octet-stream;base64,'  . base64_encode($this->img_binary_data);
+				$data = @getimagesize($uri);
+			} 
+			else {
+				$data = getimagesizefromstring($this->img_binary_data);	
+			}
 			
 			parent::update_size($data[0], $data[1]);
 			
@@ -421,8 +426,13 @@ else {
 		 * setup image data 
 		 */
 		public function ewpt_setup_img_data($guessed_mime = 'image/jpeg') {
-			$uri = 'data://application/octet-stream;base64,'  . base64_encode($this->img_binary_data);
-         	$data = @getimagesize($uri);
+			if(!function_exists('getimagesizefromstring')) {
+				$uri = 'data://application/octet-stream;base64,'  . base64_encode($this->img_binary_data);
+				$data = @getimagesize($uri);
+			}
+			else {
+				$data = getimagesizefromstring($this->img_binary_data);	
+			}
 			
 			parent::update_size($data[0], $data[1]);
 			
