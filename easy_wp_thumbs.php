@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v2.02
+ * Easy WP thumbs v2.03
  * NOTE: Designed for use with PHP version 5.2 and up. Requires at least WP 3.5
  * 
  * @author Luca Montanari - LCweb
@@ -13,7 +13,7 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '2.02'); 			// script version
+define ('EWPT_VER', '2.03'); 			// script version
 define ('EWPT_DEBUG_VAL', ''); 				// wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', false); 		// block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', true);	// allow fetching from any website - set to false to avoid security issues
@@ -194,9 +194,15 @@ if(_wp_image_editor_choose() == 'WP_Image_Editor_Imagick') {
 		public function __construct($data) {
 			$this->img_binary_data = $data;
 			
-			$imagick = new Imagick();
-			$imagick->readImageBlob($data);
-			$this->image = $imagick;
+			try{
+				$imagick = new Imagick();
+				$imagick->readImageBlob($data);
+				$this->image = $imagick;
+			}
+			catch(Exception $e) {
+				//echo $e; debug	
+				$this->image = false;
+			}
 		}
 		
 		
@@ -1304,7 +1310,7 @@ class easy_wp_thumbs extends ewpt_connect {
 			$exts = array('.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG', '.gif', '.GIF');
 			$img_name = str_replace($exts, '', $img_name);
 			
-			$seo_fn = '_'. sanitize_title(str_replace('%', '', urldecode($img_name)));
+			$seo_fn = '_'. sanitize_title(str_replace('%', '', urlencode($img_name)));
 		}
 		else {$seo_fn = '';}
 		
