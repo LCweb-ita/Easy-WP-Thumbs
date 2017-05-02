@@ -1,6 +1,10 @@
 <?php
 /**
+<<<<<<< HEAD
  * Easy WP thumbs v2.04
+=======
+ * Easy WP thumbs v2.03
+>>>>>>> origin/master
  * NOTE: Designed for use with PHP version 5.2 and up. Requires at least WP 3.5
  * 
  * @author:		Luca Montanari (aka LCweb)
@@ -13,7 +17,11 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
+<<<<<<< HEAD
 define ('EWPT_VER', '2.04'); 			// script version
+=======
+define ('EWPT_VER', '2.03'); 			// script version
+>>>>>>> origin/master
 define ('EWPT_DEBUG_VAL', ''); 				// wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', false); 		// block thumb loading on other websites
 define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
