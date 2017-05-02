@@ -1,10 +1,10 @@
 <?php
 /**
- * Easy WP thumbs v2.0
+ * Easy WP thumbs v2.04
  * NOTE: Designed for use with PHP version 5.2 and up. Requires at least WP 3.5
  * 
- * @author Luca Montanari - LCweb
- * @copyright 2016 Luca Montanari - http://www.lcweb.it
+ * @author:		Luca Montanari (aka LCweb)
+ * @copyright:	Luca Montanari - http://www.lcweb.it
  *
  * Licensed under the MIT license
  */
@@ -13,10 +13,10 @@
 // be sure ewpt has not been initialized yet
 if(! defined('EWPT_VER')  ) { 
  
-define ('EWPT_VER', '2.0'); 			// script version
+define ('EWPT_VER', '2.04'); 			// script version
 define ('EWPT_DEBUG_VAL', ''); 				// wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define ('EWPT_BLOCK_LEECHERS', false); 		// block thumb loading on other websites
-define ('EWPT_ALLOW_ALL_EXTERNAL', true);	// allow fetching from any website - set to false to avoid security issues
+define ('EWPT_ALLOW_ALL_EXTERNAL', false);	// allow fetching from any website - set to false to avoid security issues
 define ('EWPT_SEO_CACHE_FILENAME', true);	// whether to add original image name to cache file in order to help SEO
 
 define ('EWPT_ALLOW_EXTERNAL', serialize(array( // array of allowed websites where the script can fetch images
@@ -194,9 +194,15 @@ if(_wp_image_editor_choose() == 'WP_Image_Editor_Imagick') {
 		public function __construct($data) {
 			$this->img_binary_data = $data;
 			
-			$imagick = new Imagick();
-			$imagick->readImageBlob($data);
-			$this->image = $imagick;
+			try{
+				$imagick = new Imagick();
+				$imagick->readImageBlob($data);
+				$this->image = $imagick;
+			}
+			catch(Exception $e) {
+				//echo $e; debug	
+				$this->image = false;
+			}
 		}
 		
 		
@@ -220,9 +226,14 @@ if(_wp_image_editor_choose() == 'WP_Image_Editor_Imagick') {
 		/**
 		 * setup image data 
 		 */
-		public function ewpt_setup_img_data($guessed_mime = 'image/jpeg') {
-			$uri = 'data://application/octet-stream;base64,'  . base64_encode($this->img_binary_data);
-         	$data = @getimagesize($uri);
+		public function ewpt_setup_img_data($guessed_mime = 'image/jpeg') {	
+			if(!function_exists('getimagesizefromstring')) {
+				$uri = 'data://application/octet-stream;base64,'  . base64_encode($this->img_binary_data);
+				$data = @getimagesize($uri);
+			} 
+			else {
+				$data = getimagesizefromstring($this->img_binary_data);	
+			}
 			
 			parent::update_size($data[0], $data[1]);
 			
@@ -421,8 +432,13 @@ else {
 		 * setup image data 
 		 */
 		public function ewpt_setup_img_data($guessed_mime = 'image/jpeg') {
-			$uri = 'data://application/octet-stream;base64,'  . base64_encode($this->img_binary_data);
-         	$data = @getimagesize($uri);
+			if(!function_exists('getimagesizefromstring')) {
+				$uri = 'data://application/octet-stream;base64,'  . base64_encode($this->img_binary_data);
+				$data = @getimagesize($uri);
+			}
+			else {
+				$data = getimagesizefromstring($this->img_binary_data);	
+			}
 			
 			parent::update_size($data[0], $data[1]);
 			
@@ -1294,7 +1310,7 @@ class easy_wp_thumbs extends ewpt_connect {
 			$exts = array('.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG', '.gif', '.GIF');
 			$img_name = str_replace($exts, '', $img_name);
 			
-			$seo_fn = '_'. sanitize_title(urldecode($img_name));
+			$seo_fn = '_'. sanitize_title(str_replace('%', '', urlencode($img_name)));
 		}
 		else {$seo_fn = '';}
 		
@@ -1493,11 +1509,7 @@ if( stristr($_SERVER['REQUEST_URI'], "easy_wp_thumbs.php") !== false && isset($_
 	$params = wp_parse_args($clean_uri);
 	
 	$ewpt = new easy_wp_thumbs(EWPT_DEBUG_VAL);
-	$url = trim($_REQUEST['src']);
-	
-	// url management for special chars
-	$url = rawurlencode(stripslashes($url));
-	$url = str_replace(array('%2F', '%5C', '%3A'), array('/', '\\', ':'), $url);
+	$url = urldecode(trim($_REQUEST['src']));
 	
 	// debug
 	//var_dump( filter_var( $url, FILTER_VALIDATE_URL) );
