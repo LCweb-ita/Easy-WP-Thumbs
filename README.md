@@ -1,7 +1,7 @@
 Easy WP Thumbs - by LCweb
 ==============
 
-Easy WP Thumbs is a PHP script created with the purpose to make **WordPress thumbnails** creation process as easy and smooth as possible.<br/>
+Easy WP Thumbs is a PHP script created with the purpose to make **WordPress thumbnails** creation process as easy and smooth as possible.
 Inspired by TimThumb, is based on WP systems for the maximum compatibility. 
 
 Requires at least WP 3.5 and PHP 5.2
