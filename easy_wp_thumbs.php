@@ -25,7 +25,7 @@ define('EWPT_ERROR_PREFIX', 'Easy WP Thumbs v'.EWPT_VER.' - ');
 // MAIN CONFIGURATIONN DEFINES
 define('EWPT_FS_DEBUG_VAL', ''); 			// (string) wp filesystem debug value - use 'ftp' or 'ssh' - on production must be left empty
 define('EWPT_BLOCK_LEECHERS', false); 		// (bool) block thumb loading on other websites
-define('EWPT_ALLOW_ALL_EXTERNAL', true);	// (bool) allow fetching from any website - set to false to avoid security issues
+define('EWPT_ALLOW_ALL_EXTERNAL', false);	// (bool) allow fetching from any website - set to false to avoid security issues
 define('EWPT_SEO_CACHE_FILENAME', true);	// (bool) whether to add original image name to cache file in order to help SEO
 
 // forcing via REQUEST parameter
