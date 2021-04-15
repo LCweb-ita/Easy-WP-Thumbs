@@ -35,7 +35,7 @@ Supports WP 3.5 WP_Image_Editor class, using **Imagick** where available.
     easy_wp_thumb($img_src, $width, $height, $quality, $alignment, $resize, $canvas_col, $fx, $get_url_if_not_cached);
     ?>
     
-    // alternative way, using parameters array
+    // alternative way, using parameters array. You may use all of them or only few
     <?php 
     $params = array(
         'w' => (int|bool),
