@@ -30,14 +30,12 @@ class ewpt_connect {
     
 	// @param bool $debug_flag (optional) use 'ftp' or 'ssh' for debug
 	public function __construct($debug_flag = false) {
-		if(!function_exists('wp_upload_dir')) {
-            require_once('wp_func_includes.php');
-            
-            if(!function_exists('wp_upload_dir')) {
-                die('WP functions not initialized');
-            }
+		require_once('wp_func_includes.php');
+  
+        if(!function_exists('wp_upload_dir') || !function_exists('get_filesystem_method')) {
+            die('WP functions not initialized');
         }
-		
+
 		// set the directories
 		$upload_dirs = wp_upload_dir();
 		$this->basedir = $upload_dirs['basedir'];		
@@ -242,7 +240,7 @@ class easy_wp_thumbs extends ewpt_connect {
 	  * @param (array) $params (optional) thumbnail parameters
 	  * @param (bool) $stream (optional) true to stream the image insead of returning the URL (TimThumb-like usage)
 	  */
-	public function get_thumb($img_src, $params = false, $stream = false) {
+	public function get_thumb($img_src, $params = false, $get_url_if_not_cached = false, $stream = false) {
 		@ini_set('memory_limit','768M');
 
 		// connect to WP filesystem
@@ -271,7 +269,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		
 		// setup mime type and filenames
 		$this->manage_filename($img_src); 
-		$cache_fullpath = $this->cache_dir . '/' . $this->cache_img_name;
+		$cache_fullpath = $this->cache_dir .'/'. $this->cache_img_name;
 		
 		// check for the image type
 		$supported_mime = array('image/jpeg', 'image/png', 'image/gif');
@@ -279,15 +277,31 @@ class easy_wp_thumbs extends ewpt_connect {
 			$this->errors[] = __('File extension not supported', 'ewpt_ml');
 			return false;	
 		}
-
+        
+        
 		// check for existing cache files
 		if($wp_filesystem->exists($cache_fullpath)) {
-			return $this->return_image($this->cache_img_name, $stream);
+            return $this->return_image($this->cache_img_name, $stream);
 		}
+        
+        // no cache, want to return remote URL to not weight on server?
+        else {
+            if($get_url_if_not_cached && filter_var($get_url_if_not_cached, FILTER_VALIDATE_URL)) {
+                return $get_url_if_not_cached .'?'.
+                    'src='. urlencode($img_src) .'&'.
+                    'w='. $this->params['w'] .'&'.
+                    'h='. $this->params['h'] .'&'.
+                    'q='. (int)$this->params['q'] .'&'.
+                    'a='. $this->params['a'] .'&'.
+                    'rs='. $this->params['rs'] .'&'.
+                    'cc='. urlencode($this->params['cc']);        
+            }
+        }
 		
         
 		//// use the wp image editor
 		if(!$this->load_image($img_src)) {
+            $this->errors[] = __('Error loading image', 'ewpt_ml');
             return false;
         }
 
@@ -300,6 +314,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		// save the image
 		$img_contents = $this->image_contents();
 		if( !$this->create_file($this->cache_img_name, $img_contents) ) {
+            $this->errors[] = __('Error creating thumbnail file', 'ewpt_ml');
             return false;
         }
 		
@@ -321,7 +336,9 @@ class easy_wp_thumbs extends ewpt_connect {
 
 			// nothing got - use cURL 
 	        if(is_wp_error($data) || 200 != wp_remote_retrieve_response_code($data) || empty($data['body'])) {
-				$ch = curl_init();
+				$followlocation = (!ini_get('open_basedir') && !ini_get('safe_mode')) ? true : false;
+                
+                $ch = curl_init();
 				curl_setopt($ch, CURLOPT_AUTOREFERER, true);
 				curl_setopt($ch, CURLOPT_HEADER, 0);
 				curl_setopt($ch, CURLOPT_USERAGENT, true);
@@ -331,7 +348,7 @@ class easy_wp_thumbs extends ewpt_connect {
 				curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
 				curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
 				curl_setopt($ch, CURLOPT_URL, $img_src);
-				curl_setopt($ch, CURLOPT_FOLLOWLOCATION, EWPT_FOLLOWLOCATION);
+				curl_setopt($ch, CURLOPT_FOLLOWLOCATION, $followlocation);
 				
 				$data = curl_exec($ch);
 				$mime = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
@@ -354,7 +371,6 @@ class easy_wp_thumbs extends ewpt_connect {
 		if($this->editor->ewpt_is_valid_resource() ) {
 			$this->editor->ewpt_setup_img_data();	
 			$this->mime = $this->editor->pub_mime_type; // safe mime
-			
             return true;	
 		}
 		else {
@@ -370,38 +386,50 @@ class easy_wp_thumbs extends ewpt_connect {
 	  * @param array $params associative array of parameters
 	  */
 	private function setup_params($params) {
-		if($params && is_array($params) && count($params) > 0) {
-			foreach($this->params as $key => $val) {
-				if(isset($params[$key])) {
-					
-					// sanitize and save
-					if(in_array($key, array('w', 'h', 'q', 'rs'))) {
-						$this->params[$key] = (int)$params[$key];	
-					}
-					elseif($key == 'fx') {
-						if(is_array($params[$key])) $params[$key] = implode(',', $params[$key]);
-						$this->params[$key] = $this->ewpt_fx_array($params[$key]);
-					}
-					else {$this->params[$key] = $params[$key];}	
-					
-					// if there is no quality - set to 70
-					if(!$this->params['q']) {$this->params['q'] = 70;}
-					
-					// if resizing parameter is wrong - set the default one
-					if($this->params['rs'] > 3) {$this->params['rs'] = 1;}
-					
-					// canvas control 
-					if(!preg_match('/^#[a-f0-9]{6}$/i', '#' . $this->params['cc'])) {
-						$this->params['cc'] = 'FFFFFF';
-					}
-					
-					// if there is no alignment - set it to the center
-					$positions = array('tl','t','tr','l','c','r','bl','b','br');
-					if(in_array($this->params['a'], $positions) === false) {$this->params['a'] = 'c';}
-				}
-			}
-		}
-		return true;
+		if(!is_array($params) || empty($params)) {
+            return true;
+        }
+            
+        foreach($this->params as $key => $val) {
+            if(!isset($params[$key])) {
+                continue;    
+            }
+
+            // sanitize and save
+            if(in_array($key, array('w', 'h', 'q', 'rs'))) {
+                $this->params[$key] = (int)$params[$key];	
+            }
+            elseif($key == 'fx') {
+                if(is_array($params[$key])) {
+                    $params[$key] = implode(',', $params[$key]);
+                }
+                $this->params[$key] = $this->ewpt_fx_array($params[$key]);
+            }
+            else {
+                $this->params[$key] = $params[$key];
+            }	
+
+            // if there is no quality - set to 70
+            if(!$this->params['q']) {
+                $this->params['q'] = 70;
+            }
+
+            // if resizing parameter is wrong - set the default one
+            if($this->params['rs'] > 3) {
+                $this->params['rs'] = 1;
+            }
+
+            // canvas control 
+            if(!preg_match('/^#[a-f0-9]{6}$/i', '#'. $this->params['cc'])) {
+                $this->params['cc'] = 'FFFFFF';
+            }
+
+            // if there is no alignment - set it to the center
+            $positions = array('tl','t','tr','l','c','r','bl','b','br');
+            if(in_array($this->params['a'], $positions) === false) {
+                $this->params['a'] = 'c';
+            }
+        }
 	}
 	
     
@@ -476,9 +504,9 @@ class easy_wp_thumbs extends ewpt_connect {
 		$ext = substr($img_name, ($pos + 1), 3);
 		
         $mime_types = array(
-			'jpg|jpe' => 'image/jpeg',
-			'gif' => 'image/gif',
-			'png' => 'image/png',
+			'jpg|jpe'    => 'image/jpeg',
+			'gif'        => 'image/gif',
+			'png'        => 'image/png',
 		);
 		$extensions = array_keys( $mime_types );
 		
@@ -564,12 +592,8 @@ class easy_wp_thumbs extends ewpt_connect {
             return true;
         }
 		
-		$src_params = parse_url($img_src);
-		
-		$sites = unserialize(EWPT_ALLOW_EXTERNAL);
-		if(!is_array($sites)) {
-            $sites = array();
-        }
+		$src_params = parse_url($img_src);		
+		$sites = EWPT_ALLOW_EXTERNAL;
 
 		// add the current URL
 		$sites[] = str_replace('www.', '', $_SERVER['HTTP_HOST']);
@@ -673,10 +697,13 @@ class easy_wp_thumbs extends ewpt_connect {
             $cache_fullpath = $this->cache_dir .'/'. $this->cache_img_name;
             
 			if(!$img_contents) {
-                $this->load_image($cache_fullpath);
+                $this->load_image($cache_fullpath); 
             }
-            $this->stream_img();
             
+            // set filename to avoid WP editor issues
+            $this->editor->ewpt_setup_filename( $this->cache_img_name );
+            
+            $this->stream_img();
             die();
 		}
 	}

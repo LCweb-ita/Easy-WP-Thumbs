@@ -67,6 +67,15 @@ class ewpt_editor_extension extends WP_Image_Editor_GD {
     }
 
     
+    
+    /**
+     * Setup filename - usaful to fix issues with streaming functions
+     */
+    public function ewpt_setup_filename($path) {	
+        $this->file = $path;
+    }
+    
+    
 
     /**
      * Manage the resize and/or crop using the Timthumb v2.8.10 script

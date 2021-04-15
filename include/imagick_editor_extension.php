@@ -12,11 +12,11 @@ class ewpt_editor_extension extends WP_Image_Editor_Imagick {
 
         try{
             $imagick = new Imagick();
-            $imagick->readImageBlob($data);
+            $response = $imagick->readImageBlob($data);
             $this->image = $imagick;
         }
         catch(Exception $e) {
-            //echo $e; debug	
+            echo $e; //debug	
             $this->image = false;
         }
     }
@@ -58,6 +58,15 @@ class ewpt_editor_extension extends WP_Image_Editor_Imagick {
 
         $this->mime_type = $data['mime'];
         $this->pub_mime_type = $this->mime_type;
+    }
+    
+    
+    
+    /**
+     * Setup filename - usaful to fix issues with streaming functions
+     */
+    public function ewpt_setup_filename($path) {	
+        $this->file = $path;
     }
 
     
