@@ -100,7 +100,7 @@ if(!defined('EWPT_VER')) {
      *
         (int|bool)  w  - thumbnail's width. False to auto-calculate while using scaling function
         (int|bool)  h  - thumbnail's height. False to auto-calculate while using scaling function
-        (int)       q  - thumbnail's quality: 0 to 100
+        (int)       q  - thumbnail's quality: 1 to 100
         (string)    a  - thumbnail's cropping center. Possible values: tl, t, tr, l, c, r, bl, b, br. c = center, t = top, b = bottom, r = right, l = left
         (int)       rs - resizing method: 1 = Resize and crop, 2 = Resize and add borders, 3 = Only resize 
         (string)    cc - background / borders color – use hexadecimal values

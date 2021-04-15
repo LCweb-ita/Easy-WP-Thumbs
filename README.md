@@ -32,7 +32,22 @@ Supports WP 3.5 WP_Image_Editor class, using **Imagick** where available.
 
     // inline PHP function returning static image URL
     <php
-    easy_wp_thumb($img_src, $width, $height, $quality, $alignment, $resize, $canvas_col, $fx);
+    easy_wp_thumb($img_src, $width, $height, $quality, $alignment, $resize, $canvas_col, $fx, $get_url_if_not_cached);
+    ?>
+    
+    // alternative way, using parameters array
+    <?php 
+    $params = array(
+        'w' => (int|bool),
+        'h' => (int|bool),
+        'q' => (int),
+        'a' => (string),
+        'rs' => (int),
+        'cc' => (string),
+        'fx' =>(array),
+        'get_url_if_not_cached'=>  (string|bool)
+    );
+    easy_wp_thumb($img_src, $params);
     ?>
     
     // Timthumb-like async thumb creation (useful to not weight tons of processes on a single page)
