@@ -1,10 +1,10 @@
 <?php
 /**
- * Easy WP thumbs v3.1
+ * Easy WP thumbs v3.1.2
  * NOTE: Designed for use with PHP version 5.2 and up. Requires at least WP 3.5
  * 
- * @author Luca Montanari aka LCweb
- * @copyright 2021 Luca Montanari - https://lcweb.it
+ * @author Luca Montanari (LCweb)
+ * @copyright 2023 Luca Montanari - https://lcweb.it
  *
  * Licensed under the MIT license
  */
@@ -13,7 +13,7 @@
 
 // be sure ewpt has not been initialized yet
 if(!defined('EWPT_VER')) { 
-    define('EWPT_VER', '3.1');
+    define('EWPT_VER', '3.1.2');
     define('EWPT_ERROR_PREFIX', 'Easy WP Thumbs v'.EWPT_VER.' - '); 
 
 
@@ -54,7 +54,7 @@ if(!defined('EWPT_VER')) {
         '500px.net',
         '500px.org'    
     );
-    define('EWPT_ALLOW_EXTERNAL', $allowed_external); // (array) array of allowed websites where the script can fetch images
+    define('EWPT_ALLOW_EXTERNAL', serialize($allowed_external)); // (string) serialized array of allowed websites where the script can fetch images (to serialize against bad PHP versions)
 
 
 

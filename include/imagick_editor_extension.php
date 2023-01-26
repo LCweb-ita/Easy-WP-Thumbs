@@ -9,7 +9,10 @@ class ewpt_editor_extension extends WP_Image_Editor_Imagick {
     /* setup Imagick object  */
     public function __construct($data) {
         $this->img_binary_data = $data;
-
+        if(empty($data)) {
+            return false;    
+        }
+        
         try{
             $imagick = new Imagick();
             $response = $imagick->readImageBlob($data);
@@ -73,7 +76,7 @@ class ewpt_editor_extension extends WP_Image_Editor_Imagick {
 
     /**
      * Manage the resize and/or crop using the Timthumb v2.8.10 structure with imagick functions
-     * © Luca Montanari aka LCweb
+     * © Luca Montanari (LCweb)
      *
      * @param int $width width of the resized image
      * @param int $height height of the resized image

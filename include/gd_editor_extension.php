@@ -40,10 +40,10 @@ class ewpt_editor_extension extends WP_Image_Editor_GD {
 
     
     /**
-     * Check if a valid imagick resource exists - in this case returns always true
+     * Check if a valid GD resource exists
      */
     public function ewpt_is_valid_resource() {
-         return (!is_resource($this->image)) ? false : true;
+         return (!is_object($this->image)) ? false : true;
     }
 
 

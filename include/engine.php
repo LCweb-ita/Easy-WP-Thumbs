@@ -593,7 +593,7 @@ class easy_wp_thumbs extends ewpt_connect {
         }
 		
 		$src_params = parse_url($img_src);		
-		$sites = EWPT_ALLOW_EXTERNAL;
+		$sites = unserialize(EWPT_ALLOW_EXTERNAL);
 
 		// add the current URL
 		$sites[] = str_replace('www.', '', $_SERVER['HTTP_HOST']);

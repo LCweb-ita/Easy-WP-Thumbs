@@ -333,10 +333,10 @@ class ewpt_status_panel {
     private static function success_message($has_cache_files = false) {
         echo '<div class="wrap">';
         
-        $clean_cache_string = ($has_cache_files) ? ' <a id="ewpt_clean_cache_trig" href="javascript:void(0)">('. __('Clean cache', $multilang_key) .')</a>' : '';  
+        $clean_cache_string = ($has_cache_files) ? ' <a id="ewpt_clean_cache_trig" href="javascript:void(0)">('. __('Clean cache', self::$multilang_key) .')</a>' : '';  
 
-        echo '<h2>Easy WP Thumbs - '. __('Connection Information', $multilang_key). '</h2>
-        <p>'. __('System properly set up!', $multilang_key) . $clean_cache_string .'</p><br/>';
+        echo '<h2>Easy WP Thumbs - '. __('Connection Information', self::$multilang_key). '</h2>
+        <p>'. __('System properly set up!', self::$multilang_key) . $clean_cache_string .'</p><br/>';
         
         wp_die();
     }

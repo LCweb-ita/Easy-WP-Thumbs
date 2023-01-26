@@ -54,6 +54,8 @@ if(_wp_image_editor_choose() == 'WP_Image_Editor_Imagick') {
     require_once('imagick_editor_extension.php');
 }
 else {	
-    require_once(ABSPATH .'wp-includes/class-wp-image-editor-gd.php');
+    include_once(ABSPATH .'wp-includes/class-wp-image-editor.php');
+    include_once(ABSPATH .'wp-includes/class-wp-image-editor-gd.php');
+    
     require_once('gd_editor_extension.php');
 }
