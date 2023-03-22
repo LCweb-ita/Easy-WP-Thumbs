@@ -54,6 +54,8 @@ class ewpt_connect {
             }
 		}
 			
+        // optimization option
+        $GLOBALS['ewpt_optim_format'] = get_option('ewpt_optimization_mode', '');
 		return true;	
 	}
 
@@ -163,7 +165,15 @@ class ewpt_connect {
 		global $wp_filesystem;
 		
 		// create file
-		$fullpath = $this->cache_dir.'/'.$filename; 
+		$fullpath = $this->cache_dir .'/'. $filename; 
+        
+        if($GLOBALS['ewpt_optim_format']) {
+            $fp_arr = explode('.', $fullpath);
+            array_pop($fp_arr);
+            
+            $fullpath = implode('.', $fp_arr) . '.'. $GLOBALS['ewpt_optim_format'];
+        }
+
 		if(!$wp_filesystem->put_contents($fullpath, $contents, EWPT_CHMOD_FILE)) {
 			$this->errors[] = __('Error creating the file', 'ewpt_ml') .' '. $filename;
 			return false;	
@@ -272,8 +282,12 @@ class easy_wp_thumbs extends ewpt_connect {
 		$cache_fullpath = $this->cache_dir .'/'. $this->cache_img_name;
 		
 		// check for the image type
-		$supported_mime = array('image/jpeg', 'image/png', 'image/gif');
-		if(in_array($this->mime, $supported_mime) === false) {
+		$supported_mimes = array('image/jpeg', 'image/png', 'image/gif', 'image/webp');
+        if(function_exists('imageavif')) {
+            $supported_mimes[] = 'image/avif';   
+        }
+        
+		if(in_array($this->mime, $supported_mimes) === false) {
 			$this->errors[] = __('File extension not supported', 'ewpt_ml');
 			return false;	
 		}
@@ -298,13 +312,12 @@ class easy_wp_thumbs extends ewpt_connect {
             }
         }
 		
-        
 		//// use the wp image editor
 		if(!$this->load_image($img_src)) {
             $this->errors[] = __('Error loading image', 'ewpt_ml');
             return false;
         }
-
+        
 		// crop/resize the image
 		$this->resize_from_position();
 		
@@ -313,6 +326,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		
 		// save the image
 		$img_contents = $this->image_contents();
+        
 		if( !$this->create_file($this->cache_img_name, $img_contents) ) {
             $this->errors[] = __('Error creating thumbnail file', 'ewpt_ml');
             return false;
@@ -364,11 +378,11 @@ class easy_wp_thumbs extends ewpt_connect {
 			$data = @file_get_contents($img_src);		
 		}
         
-		
-		$this->editor = new ewpt_editor_extension($data);
+		$this->editor = new ewpt_editor_extension($data, $img_src);
 		
 		// check the resource and eventually uses the GD library
 		if($this->editor->ewpt_is_valid_resource() ) {
+            
 			$this->editor->ewpt_setup_img_data();	
 			$this->mime = $this->editor->pub_mime_type; // safe mime
             return true;	
@@ -475,7 +489,15 @@ class easy_wp_thumbs extends ewpt_connect {
 
 		// extension 
 		switch($this->mime) {
-			case 'image/png' : 
+			case 'image/webp' : 
+                $ext = '.webp'; 
+                break;
+                
+            case 'image/avif' : 
+                $ext = '.avif'; 
+                break;
+            
+            case 'image/png' : 
                 $ext = '.png'; 
                 break;
                 
@@ -487,6 +509,13 @@ class easy_wp_thumbs extends ewpt_connect {
                 $ext = '.jpg'; 
                 break;
 		}	
+        
+        if($GLOBALS['ewpt_optim_format'] == 'webp') {
+            $ext = '.webp';
+        }
+        elseif($GLOBALS['ewpt_optim_format'] == 'avif') {
+            $ext = '.avif';
+        }
 
 		$this->cache_img_name = $this->cache_filename($img_src) . $ext;
 		return $this->cache_img_name;
@@ -507,6 +536,8 @@ class easy_wp_thumbs extends ewpt_connect {
 			'jpg|jpe'    => 'image/jpeg',
 			'gif'        => 'image/gif',
 			'png'        => 'image/png',
+            'avif'       => 'image/avif',
+            'webp'       => 'image/webp',
 		);
 		$extensions = array_keys( $mime_types );
 		
@@ -536,7 +567,7 @@ class easy_wp_thumbs extends ewpt_connect {
 			$arr = explode('?', $img_name);		$img_name = $arr[0];	
 			$arr = explode('/', $img_name);		$img_name = end($arr);
 			
-			$exts = array('.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG', '.gif', '.GIF');
+			$exts = array('.jpg', '.JPG', '.jpeg', '.JPEG', '.png', '.PNG', '.gif', '.GIF', '.webp', '.WEBP', '.avif', 'AVIF');
 			$img_name = str_replace($exts, '', $img_name);
 			
 			$seo_fn = '_'. sanitize_title(str_replace('%', '', urlencode($img_name)));
@@ -572,7 +603,8 @@ class easy_wp_thumbs extends ewpt_connect {
 			$wp_img_data = wp_get_attachment_metadata((int)$img_src);
 			
             if($wp_img_data) {
-				$img_src = $this->basedir . '/' . $wp_img_data['file'];
+                // mar-2023 - WP doesn't return data for avif
+				$img_src = (isset($wp_img_data['file'])) ? $this->basedir . '/' . $wp_img_data['file'] : get_attached_file($img_src);
 			}
 		}
 		
@@ -675,7 +707,16 @@ class easy_wp_thumbs extends ewpt_connect {
 	  */
 	private function stream_img() {
 		$this->editor->set_quality( $this->params['q'] );
-		return $this->editor->stream( $this->mime );	
+        
+        $stream_mime = $this->mime;
+        if($GLOBALS['ewpt_optim_format'] == 'webp') {
+            $stream_mime = 'image/webp';
+        }
+        elseif($GLOBALS['ewpt_optim_format'] == 'avif') {
+            $stream_mime = 'image/avif';
+        }
+        
+		return $this->editor->stream( $stream_mime );	
 	}
 	
     
@@ -688,7 +729,6 @@ class easy_wp_thumbs extends ewpt_connect {
 	  * @param string $img_contents resource used to create the file
 	  */
 	private function return_image($filename, $stream = false, $img_contents = false) {
-		
         if(!$stream) {
 			return str_replace(array('http:', 'https:', 'HTTP:', 'HTTPS:'), '', $this->cache_url) .'/'. $filename;
 		}

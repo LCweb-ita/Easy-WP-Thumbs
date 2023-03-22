@@ -6,9 +6,10 @@ class ewpt_editor_extension extends WP_Image_Editor_GD {
 
 
     /* setup GD object  */
-    public function __construct($data) {
-         $this->img_binary_data = $data;
-         $this->image = imagecreatefromstring($data);
+    public function __construct($data, $img_src) {
+        $this->img_binary_data = $data;
+        $this->image = imagecreatefromstring($data);
+        $this->file = $img_src;
     }
 
     
@@ -208,7 +209,7 @@ class ewpt_editor_extension extends WP_Image_Editor_GD {
             @imagecopyresampled ($canvas, $image, 0, 0, 0, 0, $new_width, $new_height, $width, $height);
         }
 
-        //Straight from Wordpress core code. Reduces filesize by up to 70% for PNG's
+        // Straight from Wordpress core code. Reduces filesize by up to 70% for PNG's
         if ( ($mime == 'image/png' || $mime == 'image/gif') && function_exists('imageistruecolor') && !imageistruecolor( $image ) && imagecolortransparent( $image ) > 0 ){
             imagetruecolortopalette( $canvas, false, imagecolorstotal( $image ) );
         }
@@ -225,7 +226,24 @@ class ewpt_editor_extension extends WP_Image_Editor_GD {
      * Returns stream of current image.
      */
     public function ewpt_img_contents() {
-        switch($this->mime_type) {
+        $output_mime = $this->mime_type;
+        
+        if($GLOBALS['ewpt_optim_format'] == 'webp') {
+            $output_mime = 'image/webp';
+        }
+        elseif($GLOBALS['ewpt_optim_format'] == 'avif') {
+            $output_mime = 'image/avif';
+        }
+        
+        switch($output_mime) {
+            case 'image/webp' :	
+                return imagewebp($this->image, null, $this->quality);
+                break;
+                
+            case 'image/avif' :	
+                return imageavif($this->image, null, $this->quality);
+                break;  
+                
             case 'image/png' :	
                 return imagepng($this->image);
                 break;

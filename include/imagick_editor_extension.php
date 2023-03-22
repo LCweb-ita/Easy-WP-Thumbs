@@ -7,7 +7,7 @@ class ewpt_editor_extension extends WP_Image_Editor_Imagick {
 
     
     /* setup Imagick object  */
-    public function __construct($data) {
+    public function __construct($data, $img_src) {
         $this->img_binary_data = $data;
         if(empty($data)) {
             return false;    
@@ -22,6 +22,8 @@ class ewpt_editor_extension extends WP_Image_Editor_Imagick {
             echo $e; //debug	
             $this->image = false;
         }
+        
+        $this->file = $img_src;
     }
 
 
@@ -214,7 +216,16 @@ class ewpt_editor_extension extends WP_Image_Editor_Imagick {
      * Returns stream of current image.
      */
     public function ewpt_img_contents() {
-        $this->image->setImageFormat($this->ewpt_mime_to_ext($this->mime_type));
+        $output_mime = $this->mime_type;
+        
+        if($GLOBALS['ewpt_optim_format'] == 'webp') {
+            $output_mime = 'image/webp';
+        }
+        elseif($GLOBALS['ewpt_optim_format'] == 'avif') {
+            $output_mime = 'image/avif';
+        }
+        
+        $this->image->setImageFormat($this->ewpt_mime_to_ext($output_mime));
         
         echo $this->image->getImageBlob();
         return true;

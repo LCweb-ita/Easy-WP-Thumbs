@@ -33,7 +33,7 @@ class ewpt_status_panel {
         }
 
         $code .= '
-        <script type="text/javascript" charset="utf8" >
+        <script type="text/javascript">
         (function() { 
 	       "use strict";
            
@@ -42,7 +42,8 @@ class ewpt_status_panel {
                 document.getElementById("ewpt_wrapper").innerHTML = \'<img alt="loading .." style="padding: 0 15px 15px; width: 30px;" src="'. get_site_url() .'/wp-includes/images/spinner-2x.gif" />\';	
             };
             
-            
+
+
             // erase cache
             const erase_cache = async function() {
                 if(!confirm("'. esc_attr__('Confirm cache files deletion?', self::$multilang_key) .'")) {
@@ -147,6 +148,29 @@ class ewpt_status_panel {
                                 erase_cache();
                             });
                         }
+                        
+                        
+                        // update optimization mode 
+                        if(document.querySelector("select[name=ewpt_optimization_mode]")) {
+                            document.querySelector("select[name=ewpt_optimization_mode]").addEventListener("change", async (e) => {
+
+                                const data = {
+                                    action          : "ewpt_update_optim_mode",
+                                    ewpt_optim_mode : e.target.value,
+                                    ewpt_nonce      : "'. wp_create_nonce('ewpt_nonce') .'"
+                                };
+
+                                await fetch(ajaxurl, format_for_wp_ajax(data)).then(async response => {
+                                    if(!response.ok) {
+                                        alert(response.status +": "+ response.statusText);
+                                    }
+                                })
+                                .catch(error => {
+                                    console.error(error);
+                                    alert("Easy WP Thumbs '. esc_attr__('error') .' "+ JSON.stringify(error));
+                                });
+                            })
+                        }
                     }
                     else {
                         document.getElementById("ewpt_ajax_response").innerHTML = "Easy WP Thumbs '. esc_attr__('error') .' "+ response.status +": "+ response.statusText;     
@@ -197,7 +221,6 @@ class ewpt_status_panel {
                 return node;
             };
     
-            
             
             
             setup("init"); // initialize
@@ -331,12 +354,21 @@ class ewpt_status_panel {
     
     // successful setup message
     private static function success_message($has_cache_files = false) {
-        echo '<div class="wrap">';
+        $clean_cache_string = ($has_cache_files) ? ' <a id="ewpt_clean_cache_trig" href="javascript:void(0)">('. __('Clean cache', self::$multilang_key) .')</a>' : ''; 
+        $optimization = get_option('ewpt_optimization_mode', '');
         
-        $clean_cache_string = ($has_cache_files) ? ' <a id="ewpt_clean_cache_trig" href="javascript:void(0)">('. __('Clean cache', self::$multilang_key) .')</a>' : '';  
+        echo '
+        <div class="wrap">
+            <h2>Easy WP Thumbs - '. __('Connection Information', self::$multilang_key). '</h2>
+            <p>'. __('System properly set up!', self::$multilang_key) . $clean_cache_string .'</p>
 
-        echo '<h2>Easy WP Thumbs - '. __('Connection Information', self::$multilang_key). '</h2>
-        <p>'. __('System properly set up!', self::$multilang_key) . $clean_cache_string .'</p><br/>';
+            <p>
+                <br/>
+                <select name="ewpt_optimization_mode" autocomplete="off">
+                    <option value="">'. __('No optimization', self::$multilang_key). '</option>
+                    <option value="webp" '. selected('webp', $optimization, false) .'>'. __('Create thumbnails in WEBP format', self::$multilang_key). '</option>
+                </select>
+            </p>';
         
         wp_die();
     }
@@ -344,7 +376,7 @@ class ewpt_status_panel {
     
     
     
-    // emptyes cache folder
+    // emptyes cache folder - ajax handler
     public static function erase_cache($fs_method = 'auto') {
         if(!isset($_POST['ewpt_nonce']) || !wp_verify_nonce($_POST['ewpt_nonce'], 'ewpt_nonce')) {
             wp_die('Cheating?');
@@ -376,6 +408,27 @@ class ewpt_status_panel {
         
         wp_die();
     }
+    
+    
+    
+    
+    // emptyes cache folder - ajax handler
+    public static function update_optim_mode() {
+        if(!isset($_POST['ewpt_nonce']) || !wp_verify_nonce($_POST['ewpt_nonce'], 'ewpt_nonce')) {
+            wp_die('Cheating?');
+        };
+
+        if(!isset($_POST['ewpt_optim_mode'])) {
+            wp_die('Missing value');
+        }
+        
+        if(!in_array((string)$_POST['ewpt_optim_mode'], array('', 'webp', 'avif'))) {
+            wp_die('Wrong value');
+        }
+        
+        update_option('ewpt_optimization_mode', (string)$_POST['ewpt_optim_mode']);
+        wp_die();
+    }
 }
 
 
@@ -385,7 +438,8 @@ class ewpt_status_panel {
 // AJAX HOOKS REGISTER
 if(function_exists('add_action')) {
     add_action('wp_ajax_ewpt_status_check', 'ewpt_status_panel::status_check');
-    add_action('wp_ajax_ewpt_erase_cache', 'ewpt_status_panel::erase_cache');  
+    add_action('wp_ajax_ewpt_erase_cache', 'ewpt_status_panel::erase_cache');
+    add_action('wp_ajax_ewpt_update_optim_mode', 'ewpt_status_panel::update_optim_mode');
 }
 
 

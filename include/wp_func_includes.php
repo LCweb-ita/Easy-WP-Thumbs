@@ -49,7 +49,7 @@ if(version_compare($wp_version, '3.5', '<=')) {
 
 
 
-// extend WP 3.5 editor classes to get image resources directly
+// extend WP editor classes to get image resources directly
 if(_wp_image_editor_choose() == 'WP_Image_Editor_Imagick') {
     require_once('imagick_editor_extension.php');
 }
