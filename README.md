@@ -7,7 +7,7 @@ Inspired by TimThumb, is based on WP systems for the maximum compatibility.
 Requires at least WP 3.5 and PHP 5.2
 
 Supports WP 3.5 WP_Image_Editor class, using **Imagick** where available.<br/>
-Supports also **WEBP** and **AVIF** thumbnails creation.
+Supports also **WEBP** and **AVIF** (_whenever WP will be ready_) thumbnails creation.
 
 <br/>
 
