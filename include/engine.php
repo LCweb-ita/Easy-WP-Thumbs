@@ -346,7 +346,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		
 		// get data - url case
 		if(filter_var($img_src, FILTER_VALIDATE_URL) || strpos( str_replace('https://', 'http://', strtolower($img_src)), 'http://') !== false) {
-			$data = wp_remote_get($img_src, array('timeout' => 8, 'redirection' => 3));
+			$data = wp_remote_get($img_src, array('timeout' => 3, 'redirection' => 3));
 
 			// nothing got - use cURL 
 	        if(is_wp_error($data) || 200 != wp_remote_retrieve_response_code($data) || empty($data['body'])) {
@@ -360,7 +360,7 @@ class easy_wp_thumbs extends ewpt_connect {
 				curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 				curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
 				curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
-				curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 8);
+				curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
 				curl_setopt($ch, CURLOPT_URL, $img_src);
 				curl_setopt($ch, CURLOPT_FOLLOWLOCATION, $followlocation);
 				
@@ -385,6 +385,10 @@ class easy_wp_thumbs extends ewpt_connect {
             
 			$this->editor->ewpt_setup_img_data();	
 			$this->mime = $this->editor->pub_mime_type; // safe mime
+            
+            if(method_exists($this->editor, 'maybe_exif_rotate')) {
+                $this->editor->maybe_exif_rotate();
+            }
             return true;	
 		}
 		else {

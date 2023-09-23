@@ -178,9 +178,11 @@ class ewpt_status_panel {
                     }
                 })
                 .catch(error => {
-                    console.error(error);
-                    document.getElementById("ewpt_ajax_response").innerHTML = "Easy WP Thumbs '. esc_attr__('error') .' "+ JSON.stringify(error);
-                    document.getElementById("ewpt_wrapper").innerHTML = "";
+                    if(error) {
+                        console.error(error);
+                        document.getElementById("ewpt_ajax_response").innerHTML = "Easy WP Thumbs '. esc_attr__('error') .' "+ JSON.stringify(error);
+                        document.getElementById("ewpt_wrapper").innerHTML = "";
+                    }
                 });   
             };
             
@@ -359,7 +361,9 @@ class ewpt_status_panel {
         
         echo '
         <div class="wrap">
+            <small class="alignright" data-ref="'. esc_attr(__FILE__) .'">v'. EWPT_VER.'</small>
             <h2>Easy WP Thumbs - '. __('Connection Information', self::$multilang_key). '</h2>
+            
             <p>'. __('System properly set up!', self::$multilang_key) . $clean_cache_string .'</p>
 
             <p>
@@ -368,7 +372,8 @@ class ewpt_status_panel {
                     <option value="">'. __('No optimization', self::$multilang_key). '</option>
                     <option value="webp" '. selected('webp', $optimization, false) .'>'. __('Create thumbnails in WEBP format', self::$multilang_key). '</option>
                 </select>
-            </p>';
+            </p>
+        </div>';
         
         wp_die();
     }

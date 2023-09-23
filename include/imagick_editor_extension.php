@@ -19,7 +19,7 @@ class ewpt_editor_extension extends WP_Image_Editor_Imagick {
             $this->image = $imagick;
         }
         catch(Exception $e) {
-            echo $e; //debug	
+            //echo $e; //debug	
             $this->image = false;
         }
         
