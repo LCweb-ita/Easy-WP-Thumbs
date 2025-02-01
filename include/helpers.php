@@ -34,23 +34,11 @@ class ewpt_helpers {
      * @param (string) $img_path
      */
     public static function manage_browser_cache($img_path) {
-        $etag_file = md5($img_path);
-        $etag_header = (isset($_SERVER['HTTP_IF_NONE_MATCH'])) ? trim($_SERVER['HTTP_IF_NONE_MATCH']) : false;
+        $cache_duration = 15 * 24 * 60 * 60; // 15 days 
+        $hash = md5($img_path);
+        $expires = gmdate('U') + $cache_duration;
 
-        header("Etag: ". $etag_file);
-
-        $seconds_to_cache = 3600 * 24 * 15; // 15 days
-        $ts = gmdate("D, d M Y H:i:s", time() + $seconds_to_cache) . " GMT";
-        header("Expires: ". $ts);
-        header('Cache-Control: must-revalidate');
-        header("Cache-Control: max-age=3600");
-        header("Cache-Control: public");
-        header('Pragma: public');
-        
-        // check if contents changed. If not, send 304 and exit
-        if($etag_header == $etag_file) {
-            header("HTTP/1.1 304 Not Modified");
-            die();
-        }
+        header("Cache-Control: public, max-age=$cache_duration, immutable");
+        header("Expires: " . gmdate("D, d M Y H:i:s", $expires) . " GMT");
     }
 }

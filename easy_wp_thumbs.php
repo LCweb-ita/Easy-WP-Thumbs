@@ -1,10 +1,10 @@
 <?php
 /**
- * Easy WP thumbs v3.3.0
+ * Easy WP thumbs v3.3.2
  * NOTE: Designed for use with PHP version 5.2 and up. Requires at least WP 3.5
  * 
  * @author Luca Montanari (LCweb)
- * @copyright 2023 Luca Montanari - https://lcweb.it
+ * @copyright 2012-2025 Luca Montanari - https://lcweb.it
  *
  * Licensed under the MIT license
  */
@@ -13,7 +13,7 @@
 
 // be sure ewpt has not been initialized yet
 if(!defined('EWPT_VER')) { 
-    define('EWPT_VER', '3.2.1');
+    define('EWPT_VER', '3.3.2');
     define('EWPT_ERROR_PREFIX', 'Easy WP Thumbs v'.EWPT_VER.' - '); 
 
 
@@ -130,6 +130,9 @@ if(!defined('EWPT_VER')) {
      * @return (string) thumbnail URL or error message
      */
     function easy_wp_thumb($img_src, $w_jolly = false, $h = false, $quality = 80, $align = 'c', $resize = 1, $canvas_col = 'FFFFFF', $fx = array(), $get_url_if_not_cached = false) {
+        if(strpos($img_src, '%2F') !== false) {
+            $img_src = urldecode($img_src);   
+        }
         
         // old retrocompatibility definition way
         if(!is_array($w_jolly)) {
@@ -153,7 +156,15 @@ if(!defined('EWPT_VER')) {
         $ewpt = new easy_wp_thumbs;
         $thumb = $ewpt->get_thumb($img_src, $params, $get_url_if_not_cached);
 
-        return (!$thumb) ? __('thumb creation failed', 'ewpt_ml') : $thumb;  
+        if(!$thumb) {
+            if(isset($_GET['ewpt_debug'])) {
+                foreach($ewpt->errors as $error) {
+                    trigger_error('Easy WP Thumbs v'. EWPT_VER .' - '. $img_src .' - '. $error);
+                }
+            }
+        }
+        
+        return (!$thumb) ? 'thumb-creation-failed' : $thumb;  
     }
 
 
@@ -166,17 +177,13 @@ if(!defined('EWPT_VER')) {
             ob_end_clean();
         }
         
-        ini_set('display_errors', 1);
-        ini_set('display_startup_errors', 1);
-        error_reporting(E_ALL);	
-
         // check for external leechers
         ewpt_helpers::block_external_leechers();
 
         // browser cache based on URL
         ewpt_helpers::manage_browser_cache($_SERVER['REQUEST_URI']);
 
-
+        
         // clean url and get args
         $url_arr = explode('?', $_SERVER['REQUEST_URI']);
         parse_str($url_arr[1], $params);

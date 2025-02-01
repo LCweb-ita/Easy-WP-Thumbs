@@ -82,7 +82,7 @@ class ewpt_connect {
 		}
 		
 		if(!file_exists($path)) {
-			$this->errors[] = 'get_method - '. __("path does not exist", 'ewpt_ml');
+			$this->errors[] = 'get_method - '. esc_html__("path does not exist", 'ewpt_ml');
 			return false;	
 		}
 		
@@ -104,7 +104,7 @@ class ewpt_connect {
 				return $this->is_ready(true);
 			}
 			
-			$this->errors[] = __("Cache folder doesn't exist", 'ewpt_ml');
+			$this->errors[] = esc_html__("Cache folder doesn't exist", 'ewpt_ml');
 			return false;
 		}
 		
@@ -122,7 +122,7 @@ class ewpt_connect {
 		// check saved credentials against WP_filesys
 		else {
 			if(!$this->creds || !WP_Filesystem($this->creds, $this->cache_dir)) {
-				$this->errors[] = '01 - WP_filesystem - '. __("connection failed", 'ewpt_ml');
+				$this->errors[] = '01 - WP_filesystem - '. esc_html__("connection failed", 'ewpt_ml');
 				return false;
 			}
 			
@@ -141,7 +141,7 @@ class ewpt_connect {
 	  */
 	public function create_file($filename, $contents) {
 		if(empty($filename) || empty($contents)) {
-			$this->errors[] = __('Filename or contents are missing', 'ewpt_ml');
+			$this->errors[] = esc_html__('Filename or contents are missing', 'ewpt_ml');
 			return false;	
 		}
 		
@@ -153,12 +153,12 @@ class ewpt_connect {
 				define('FS_METHOD', 'direct');
 				
 				if(!$this->is_ready()) {
-					$this->errors[] = '02 - WP_filesystem - '. __('connection failed', 'ewpt_ml');
+					$this->errors[] = '02 - WP_filesystem - '. esc_html__('connection failed', 'ewpt_ml');
 					return false;		
 				}
 			}
 			else {
-				$this->errors[] = '02 - WP_filesystem - '. __('connection failed', 'ewpt_ml');
+				$this->errors[] = '02 - WP_filesystem - '. esc_html__('connection failed', 'ewpt_ml');
 				return false;	
 			}
 		}
@@ -175,7 +175,7 @@ class ewpt_connect {
         }
 
 		if(!$wp_filesystem->put_contents($fullpath, $contents, EWPT_CHMOD_FILE)) {
-			$this->errors[] = __('Error creating the file', 'ewpt_ml') .' '. $filename;
+			$this->errors[] = esc_html__('Error creating the file', 'ewpt_ml') .' '. $filename;
 			return false;	
 		}
         
@@ -188,9 +188,9 @@ class ewpt_connect {
 	  * Returns the errors
 	  */
 	public function get_errors() {
-		if(count($this->errors) > 0){
+		if(count($this->errors)){
 			$html = '
-            <h2>Easy WP Thumbs - '. __('errors occurred', 'ewpt_ml') .'</h2>
+            <h2>Easy WP Thumbs - '. esc_html__('errors occurred', 'ewpt_ml') .'</h2>
             <ul>';
 			
 			foreach($this->errors as $error) {
@@ -252,7 +252,7 @@ class easy_wp_thumbs extends ewpt_connect {
 	  */
 	public function get_thumb($img_src, $params = false, $get_url_if_not_cached = false, $stream = false) {
 		@ini_set('memory_limit','768M');
-
+        
 		// connect to WP filesystem
 		if(!$this->is_ready()) {
             return false;
@@ -272,7 +272,7 @@ class easy_wp_thumbs extends ewpt_connect {
         
 		if(!filter_var($img_src, FILTER_VALIDATE_URL)) {
 			if(!$img_src || !file_exists($img_src)) {
-				$this->errors[] = __('WP image not found or invalid image path', 'ewpt_ml');
+				$this->errors[] = esc_html__('WP image not found or invalid image path', 'ewpt_ml');
 				return false;
 			}	
 		}
@@ -288,7 +288,7 @@ class easy_wp_thumbs extends ewpt_connect {
         }
         
 		if(in_array($this->mime, $supported_mimes) === false) {
-			$this->errors[] = __('File extension not supported', 'ewpt_ml');
+			$this->errors[] = esc_html__('File extension not supported', 'ewpt_ml');
 			return false;	
 		}
         
@@ -314,7 +314,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		
 		//// use the wp image editor
 		if(!$this->load_image($img_src)) {
-            $this->errors[] = __('Error loading image', 'ewpt_ml');
+            $this->errors[] = esc_html__('Error loading image', 'ewpt_ml');
             return false;
         }
         
@@ -328,7 +328,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		$img_contents = $this->image_contents();
         
 		if( !$this->create_file($this->cache_img_name, $img_contents) ) {
-            $this->errors[] = __('Error creating thumbnail file', 'ewpt_ml');
+            $this->errors[] = esc_html__('Error creating thumbnail file', 'ewpt_ml');
             return false;
         }
 		
@@ -392,7 +392,7 @@ class easy_wp_thumbs extends ewpt_connect {
             return true;	
 		}
 		else {
-			$this->errors[] = 'WP image editor - '. __('Invalid image data', 'ewpt_ml');
+			$this->errors[] = 'WP image editor - '. esc_html__('Invalid image data', 'ewpt_ml');
 			return false;
 		}
 	}
@@ -649,7 +649,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		}
 		
 		if(!$allowed){
-			$this->errors[] = __('Image source is not among allowed websites', 'ewpt_ml');
+			$this->errors[] = esc_html__('Image source is not among allowed websites', 'ewpt_ml');
 			return false;
 		}
         
@@ -745,10 +745,10 @@ class easy_wp_thumbs extends ewpt_connect {
             }
             
             // set filename to avoid WP editor issues
-            $this->editor->ewpt_setup_filename( $this->cache_img_name );
+            $this->editor->ewpt_setup_filename($cache_fullpath);
             
             $this->stream_img();
-            die();
+            exit;
 		}
 	}
 }
