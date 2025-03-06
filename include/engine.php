@@ -379,7 +379,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		}
         
 		$this->editor = new ewpt_editor_extension($data, $img_src);
-		
+        
 		// check the resource and eventually uses the GD library
 		if($this->editor->ewpt_is_valid_resource() ) {
             
