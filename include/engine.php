@@ -234,13 +234,14 @@ class easy_wp_thumbs extends ewpt_connect {
 	
 	// associative array of thumb parameters
 	private $params = array(
-		'w'		=> false,	// (int)width
-		'h'		=> false,	// (int)height
-		'q' 	=> 80, 		// (int)quality
-		'a'		=> 'c',		// alignment
-		'cc'	=> 'FFFFFF', // canvas color for resizing with borders 
-		'fx'	=> array(),	// effects
-		'rs'	=> 1	// (bool) resize/crop
+		'w'		=> 150,	// (int) width
+		'h'		=> 150,	// (int) height
+		'q' 	=> 80, // (int) quality
+		'a'		=> 'c', // (string)alignment
+		'cc'	=> 'FFFFFF', // (string) canvas color for resizing with borders 
+		'fx'	=> array(),	// (array) effects
+		'rs'	=> 1,	// (bool) resize/crop
+        'get_url_if_not_cached' => false, // (false|string) whether to return remote thumb URL if image is not cached, to avoid page's opening slowdowns. Use false of the easy_wp_thumbs.php file URL       
 	);
 	
     
@@ -250,7 +251,7 @@ class easy_wp_thumbs extends ewpt_connect {
 	  * @param (array) $params (optional) thumbnail parameters
 	  * @param (bool) $stream (optional) true to stream the image insead of returning the URL (TimThumb-like usage)
 	  */
-	public function get_thumb($img_src, $params = false, $get_url_if_not_cached = false, $stream = false) {
+	public function get_thumb($img_src, $params = false, $stream = false) {
 		@ini_set('memory_limit','768M');
         
 		// connect to WP filesystem
@@ -259,11 +260,8 @@ class easy_wp_thumbs extends ewpt_connect {
         }
 		global $wp_filesystem;
 		
-		// setup the parameters 
-		$this->setup_params($params);
-		
-		// check the source
-		if(!$this->check_source($img_src)) {
+		// setup the parameters and check the source
+		if(!$this->setup_params($params) || !$this->check_source($img_src)) {
             return false;
         }
 		
@@ -283,7 +281,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		
 		// check for the image type
 		$supported_mimes = array('image/jpeg', 'image/png', 'image/gif', 'image/webp');
-        if(function_exists('imageavif')) {
+        if(ewpt_helpers::supports_avif()) {
             $supported_mimes[] = 'image/avif';   
         }
         
@@ -292,7 +290,6 @@ class easy_wp_thumbs extends ewpt_connect {
 			return false;	
 		}
         
-        
 		// check for existing cache files
 		if($wp_filesystem->exists($cache_fullpath)) {
             return $this->return_image($this->cache_img_name, $stream);
@@ -300,8 +297,8 @@ class easy_wp_thumbs extends ewpt_connect {
         
         // no cache, want to return remote URL to not weight on server?
         else {
-            if($get_url_if_not_cached && filter_var($get_url_if_not_cached, FILTER_VALIDATE_URL)) {
-                return $get_url_if_not_cached .'?'.
+            if($this->params['get_url_if_not_cached'] && !$stream) {
+                return $this->params['get_url_if_not_cached'] .'?'.
                     'src='. urlencode($img_src) .'&'.
                     'w='. $this->params['w'] .'&'.
                     'h='. $this->params['h'] .'&'.
@@ -327,7 +324,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		// save the image
 		$img_contents = $this->image_contents();
         
-		if( !$this->create_file($this->cache_img_name, $img_contents) ) {
+		if(!$this->create_file($this->cache_img_name, $img_contents) ) {
             $this->errors[] = esc_html__('Error creating thumbnail file', 'ewpt_ml');
             return false;
         }
@@ -404,7 +401,7 @@ class easy_wp_thumbs extends ewpt_connect {
 	  * @param array $params associative array of parameters
 	  */
 	private function setup_params($params) {
-		if(!is_array($params) || empty($params)) {
+		if(!is_array($params)) {
             return true;
         }
             
@@ -415,7 +412,7 @@ class easy_wp_thumbs extends ewpt_connect {
 
             // sanitize and save
             if(in_array($key, array('w', 'h', 'q', 'rs'))) {
-                $this->params[$key] = (int)$params[$key];	
+                $this->params[$key] = absint($params[$key]);	
             }
             elseif($key == 'fx') {
                 if(is_array($params[$key])) {
@@ -425,29 +422,42 @@ class easy_wp_thumbs extends ewpt_connect {
             }
             else {
                 $this->params[$key] = $params[$key];
-            }	
-
-            // if there is no quality - set to 70
-            if(!$this->params['q']) {
-                $this->params['q'] = 70;
-            }
-
-            // if resizing parameter is wrong - set the default one
-            if($this->params['rs'] > 3) {
-                $this->params['rs'] = 1;
-            }
-
-            // canvas control 
-            if(!preg_match('/^#[a-f0-9]{6}$/i', '#'. $this->params['cc'])) {
-                $this->params['cc'] = 'FFFFFF';
-            }
-
-            // if there is no alignment - set it to the center
-            $positions = array('tl','t','tr','l','c','r','bl','b','br');
-            if(in_array($this->params['a'], $positions) === false) {
-                $this->params['a'] = 'c';
             }
         }
+        
+        // at least one size must be specificied
+        if(!$this->params['w'] && !$this->params['h']) {
+            $this->errors[] = esc_html__('No thumb sizes specified', 'ewpt_ml');
+            return false;   
+        }
+        
+        // if there is no quality - set to 70
+        if(!$this->params['q']) {
+            $this->params['q'] = 70;
+        }
+
+        // if resizing parameter is wrong - set the default one
+        if($this->params['rs'] > 3) {
+            $this->params['rs'] = 1;
+        }
+
+        // canvas control 
+        if(!preg_match('/^#[a-f0-9]{6}$/i', '#'. $this->params['cc'])) {
+            $this->params['cc'] = 'FFFFFF';
+        }
+
+        // if there is no alignment - set it to the center
+        $positions = array('tl','t','tr','l','c','r','bl','b','br');
+        if(in_array($this->params['a'], $positions) === false) {
+            $this->params['a'] = 'c';
+        }
+
+        // get_url_if_not_cached?
+        if(!filter_var($this->params['get_url_if_not_cached'], FILTER_VALIDATE_URL)) {
+            $this->params['get_url_if_not_cached'] = false;
+        }
+        
+        return true;
 	}
 	
     

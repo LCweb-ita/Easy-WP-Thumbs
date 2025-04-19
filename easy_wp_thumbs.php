@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v3.3.3
+ * Easy WP thumbs v3.4.0
  * NOTE: Designed for use with PHP version 5.2 and up. Requires at least WP 3.5
  * 
  * @author Luca Montanari (LCweb)
@@ -13,7 +13,7 @@
 
 // be sure ewpt has not been initialized yet
 if(!defined('EWPT_VER')) { 
-    define('EWPT_VER', '3.3.3');
+    define('EWPT_VER', '3.4.0');
     define('EWPT_ERROR_PREFIX', 'Easy WP Thumbs v'.EWPT_VER.' - '); 
 
 
@@ -93,7 +93,7 @@ if(!defined('EWPT_VER')) {
     
     
     // allow AVIF upload
-    if(function_exists('add_filter')) {
+    if(function_exists('add_filter') && ewpt_helpers::supports_avif()) {
         add_filter('upload_mimes', function($mimes) {
             if(!isset($mimes['avif'])) {
                 $mimes['avif'] = 'image/avif';    
@@ -143,18 +143,16 @@ if(!defined('EWPT_VER')) {
                 'a'		=> $align,
                 'cc'	=> $canvas_col,
                 'fx'	=> $fx,
-                'rs'	=> $resize
+                'rs'	=> $resize,
+                'get_url_if_not_cached' => $get_url_if_not_cached,
             );
         }
-        
-        // quick params definition via array
         else {
             $params = $w_jolly;
-            $get_url_if_not_cached = (isset($param['get_url_if_not_cached'])) ? $param['get_url_if_not_cached'] : false;
         }
 
         $ewpt = new easy_wp_thumbs;
-        $thumb = $ewpt->get_thumb($img_src, $params, $get_url_if_not_cached);
+        $thumb = $ewpt->get_thumb($img_src, $params);
 
         if(!$thumb) {
             if(isset($_GET['ewpt_debug'])) {
@@ -164,7 +162,9 @@ if(!defined('EWPT_VER')) {
             }
         }
         
-        return (!$thumb) ? 'thumb-creation-failed' : $thumb;  
+        return (!$thumb) ? 
+            esc_attr('thumb-creation-failed|||'. site_url('/wp-content' . @explode('/wp-content', __FILE__)[1]) . '?src='. urlencode($img_src) .'&'. http_build_query($params)) : 
+            esc_url($thumb);
     }
 
 
@@ -183,6 +183,10 @@ if(!defined('EWPT_VER')) {
         // browser cache based on URL
         ewpt_helpers::manage_browser_cache($_SERVER['REQUEST_URI']);
 
+        // no async if recalling an URL
+        if(isset($params['get_url_if_not_cached'])) {
+            unset($params['get_url_if_not_cached']);
+        }
         
         // clean url and get args
         $url_arr = explode('?', $_SERVER['REQUEST_URI']);
@@ -191,10 +195,10 @@ if(!defined('EWPT_VER')) {
         $ewpt  = new easy_wp_thumbs;
         $url   = urldecode(trim($_REQUEST['src']));
         
-        $thumb = $ewpt->get_thumb($url, $params, false, $stream = true);
+        $thumb = $ewpt->get_thumb($url, $params, $stream = true);
         if(!$thumb) {
             header($_SERVER['SERVER_PROTOCOL'] . ' 400 Bad Request');
             die($ewpt->get_errors());
-        } 
+        }
     }
 }

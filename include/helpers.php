@@ -30,6 +30,7 @@ class ewpt_helpers {
 
     
 
+    
     /* Manage browser headers cache for remote URL thumbs
      * @param (string) $img_path
      */
@@ -40,5 +41,13 @@ class ewpt_helpers {
 
         header("Cache-Control: public, max-age=$cache_duration, immutable");
         header("Expires: " . gmdate("D, d M Y H:i:s", $expires) . " GMT");
+    }
+    
+    
+
+    
+    /* Does the system supports AVIF management? */
+    public static function supports_avif() {
+        return (function_exists('imageavif') || (class_exists('Imagick') && !empty((new Imagick())->queryFormats('AVIF')))) ? true : false;
     }
 }

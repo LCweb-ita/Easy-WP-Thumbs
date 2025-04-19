@@ -8,9 +8,43 @@ class ewpt_editor_extension extends WP_Image_Editor_GD {
     /* setup GD object  */
     public function __construct($data, $img_src) {
         $this->img_binary_data = $data;
-        $this->image = imagecreatefromstring($data);
+        $this->image = imagecreatefromstring(trim($data));
         $this->file = $img_src;
+        
+        var_dump($this->image);
+        
+        // problematic?
+        if(!is_resource($this->image) && !empty($data)) {
+            switch($this->guess_the_ext($img_src)) {
+                case 'jpg' : 
+                case 'jpeg' :
+                    $this->image = imagecreatefromjpeg($img_src);
+                    break;
+                    
+                case 'png':
+                    $this->image = imagecreatefrompng($img_src);
+                    break;
+
+                case 'gif':
+                    $this->image = imagecreatefromgif($img_src);
+                    break;
+
+                case 'webp':
+                    $this->image = imagecreatefromwebp($img_src);
+                    break;
+            }
+        }
     }
+    
+    
+    
+    private function guess_the_ext($img_src) {
+        $extension = strtolower(pathinfo(parse_url($img_src, PHP_URL_PATH), PATHINFO_EXTENSION));
+        $valid_extensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+        
+        return (in_array($extension, $valid_extensions)) ? $extension : 'jpg';   
+    }
+    
 
     
 

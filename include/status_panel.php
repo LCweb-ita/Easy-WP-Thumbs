@@ -89,7 +89,7 @@ class ewpt_status_panel {
             const setup = async function(step) {
                 const err_mess = 
                     `<div id="ewpt_message" class="error">
-                        <p>'. __('<strong>Server connection error</strong>, please check inserted values', self::$multilang_key) .'</p>
+                        <p>'. esc_html__('<strong>Server connection error</strong>, please check inserted values', self::$multilang_key) .'</p>
                     </div>`;
                 
                 
@@ -157,12 +157,17 @@ class ewpt_status_panel {
                                 const data = {
                                     action          : "ewpt_update_optim_mode",
                                     ewpt_optim_mode : e.target.value,
-                                    ewpt_nonce      : "'. wp_create_nonce('ewpt_nonce') .'"
+                                    ewpt_nonce      : "'. esc_js(wp_create_nonce('ewpt_nonce')) .'"
                                 };
 
                                 await fetch(ajaxurl, format_for_wp_ajax(data)).then(async response => {
                                     if(!response.ok) {
                                         alert(response.status +": "+ response.statusText);
+                                    }
+                                    const resp = await response.text();
+
+                                    if(resp.trim() && resp.trim() != "success") {
+                                        alert("Easy WP Thumbs - "+ resp);
                                     }
                                 })
                                 .catch(error => {
@@ -268,7 +273,7 @@ class ewpt_status_panel {
 
         // print the nonces and screen fields anyway
         if(isset($_POST['ewpt_nonce_url'])) {
-            echo '<input type="hidden" name="ewpt_nonce_url" value="'.$_POST['ewpt_nonce_url'].'" />';
+            echo '<input type="hidden" name="ewpt_nonce_url" value="'. esc_attr($_POST['ewpt_nonce_url']) .'" />';
         }
 
         // context
@@ -311,7 +316,7 @@ class ewpt_status_panel {
                     wp_die();
                 } 
                 else {
-                    wp_die( __('Error creating the cache directory', self::$multilang_key) .'<br/><br/>');
+                    wp_die( esc_html__('Error creating the cache directory', self::$multilang_key) .'<br/><br/>');
                 }
             }
         }
@@ -328,7 +333,7 @@ class ewpt_status_panel {
                     wp_die();
                 } 
                 else {
-                    wp_die( __('Error creating the test file', self::multilang_key) .'<br/><br/>');
+                    wp_die( esc_html__('Error creating the test file', self::multilang_key) .'<br/><br/>');
                 }
             }
         }
@@ -356,21 +361,27 @@ class ewpt_status_panel {
     
     // successful setup message
     private static function success_message($has_cache_files = false) {
-        $clean_cache_string = ($has_cache_files) ? ' <a id="ewpt_clean_cache_trig" href="javascript:void(0)">('. __('Clean cache', self::$multilang_key) .')</a>' : ''; 
+        $clean_cache_string = ($has_cache_files) ? ' <a id="ewpt_clean_cache_trig" href="javascript:void(0)">('. esc_html__('Clean cache', self::$multilang_key) .')</a>' : ''; 
         $optimization = get_option('ewpt_optimization_mode', '');
         
         echo '
         <div class="wrap">
-            <small class="alignright" data-ref="'. esc_attr(__FILE__) .'">v'. EWPT_VER.'</small>
-            <h2>Easy WP Thumbs - '. __('Connection Information', self::$multilang_key). '</h2>
+            <small class="alignright" data-ref="'. esc_attr(__FILE__) .'">v'. esc_html(EWPT_VER) .'</small>
+            <h2>Easy WP Thumbs - '. esc_html__('Connection Information', self::$multilang_key). '</h2>
             
-            <p>'. __('System properly set up!', self::$multilang_key) . $clean_cache_string .'</p>
+            <p>'. esc_html__('System properly set up!', self::$multilang_key) . $clean_cache_string .'</p>
 
             <p>
                 <br/>
                 <select name="ewpt_optimization_mode" autocomplete="off">
-                    <option value="">'. __('No optimization', self::$multilang_key). '</option>
-                    <option value="webp" '. selected('webp', $optimization, false) .'>'. __('Create thumbnails in WEBP format', self::$multilang_key). '</option>
+                    <option value="">'. esc_html__('No optimization', self::$multilang_key). '</option>
+                    <option value="webp" '. selected('webp', $optimization, false) .'>'. esc_html__('Create thumbnails in WEBP format', self::$multilang_key). '</option>';
+        
+                    if(ewpt_helpers::supports_avif()) {
+                        echo '<option value="avif" '. selected('avif', $optimization, false) .'>'. esc_html__('Create thumbnails in AVIF format', self::$multilang_key). '</option>';   
+                    }
+        
+                echo '
                 </select>
             </p>
         </div>';
@@ -396,22 +407,22 @@ class ewpt_status_panel {
 
         // check if is ready to operate
         if(!$ewpt->is_ready()) {
-            wp_die( __('Cache folder not found', self::$multilang_key));
+            wp_die( esc_html__('Cache folder not found', self::$multilang_key));
         }
 
         global $wp_filesystem;
         if(!$ewpt->cache_dir || strpos($ewpt->cache_dir, 'ewpt') === false) {
-            wp_die( __('wrong cache directory', self::$multilang_key));
+            wp_die( esc_html__('wrong cache directory', self::$multilang_key));
         }
 
         if(!$wp_filesystem->rmdir( $ewpt->cache_dir, true)) {
-            wp_die( __('Error deleting the cache files', self::$multilang_key));
+            wp_die( esc_html__('Error deleting the cache files', self::$multilang_key));
         }
 
         $_POST['ewpt_init'] = true;
         self::status_check(false);
         
-        wp_die();
+        wp_die('success');
     }
     
     
@@ -419,7 +430,7 @@ class ewpt_status_panel {
     
     // emptyes cache folder - ajax handler
     public static function update_optim_mode() {
-        if(!isset($_POST['ewpt_nonce']) || !wp_verify_nonce($_POST['ewpt_nonce'], 'ewpt_nonce')) {
+        if(!isset($_POST['ewpt_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['ewpt_nonce'])), 'ewpt_nonce')) {
             wp_die('Cheating?');
         };
 
@@ -431,7 +442,7 @@ class ewpt_status_panel {
             wp_die('Wrong value');
         }
         
-        update_option('ewpt_optimization_mode', (string)$_POST['ewpt_optim_mode']);
+        update_option('ewpt_optimization_mode', sanitize_text_field($_POST['ewpt_optim_mode']));
         wp_die();
     }
 }
