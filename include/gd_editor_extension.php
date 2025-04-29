@@ -11,8 +11,6 @@ class ewpt_editor_extension extends WP_Image_Editor_GD {
         $this->image = imagecreatefromstring(trim($data));
         $this->file = $img_src;
         
-        var_dump($this->image);
-        
         // problematic?
         if(!is_resource($this->image) && !empty($data)) {
             switch($this->guess_the_ext($img_src)) {

@@ -730,7 +730,7 @@ class easy_wp_thumbs extends ewpt_connect {
             $stream_mime = 'image/avif';
         }
         
-		return $this->editor->stream( $stream_mime );	
+		return $this->editor->stream($stream_mime);	
 	}
 	
     
