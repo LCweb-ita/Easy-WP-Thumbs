@@ -8,11 +8,11 @@ class ewpt_editor_extension extends WP_Image_Editor_GD {
     /* setup GD object  */
     public function __construct($data, $img_src) {
         $this->img_binary_data = $data;
-        $this->image = imagecreatefromstring(trim($data));
+        $this->image = imagecreatefromstring($data);
         $this->file = $img_src;
         
         // problematic?
-        if(!is_resource($this->image) && !empty($data)) {
+        if(!is_resource($this->image) && !($this->image instanceof GdImage) && !empty($data)) {
             switch($this->guess_the_ext($img_src)) {
                 case 'jpg' : 
                 case 'jpeg' :
@@ -76,7 +76,7 @@ class ewpt_editor_extension extends WP_Image_Editor_GD {
      * Check if a valid GD resource exists
      */
     public function ewpt_is_valid_resource() {
-        return (is_resource($this->image) && get_resource_type($this->image)) ? true : false;
+        return (is_resource($this->image) || $this->image instanceof GdImage) ? true : false;
     }
 
 

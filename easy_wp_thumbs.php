@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v3.4.1
+ * Easy WP thumbs v3.4.2
  * NOTE: Designed for use with PHP version 5.2 and up. Requires at least WP 3.5
  * 
  * @author Luca Montanari (LCweb)
@@ -13,7 +13,7 @@
 
 // be sure ewpt has not been initialized yet
 if(!defined('EWPT_VER')) { 
-    define('EWPT_VER', '3.4.1');
+    define('EWPT_VER', '3.4.2');
     define('EWPT_ERROR_PREFIX', 'Easy WP Thumbs v'.EWPT_VER.' - '); 
 
 

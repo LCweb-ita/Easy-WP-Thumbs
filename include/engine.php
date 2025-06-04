@@ -343,7 +343,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		
 		// get data - url case
 		if(filter_var($img_src, FILTER_VALIDATE_URL) || strpos( str_replace('https://', 'http://', strtolower($img_src)), 'http://') !== false) {
-			$data = wp_remote_get($img_src, array('timeout' => 3, 'redirection' => 3));
+			$data = wp_remote_get($img_src, array('timeout' => 7, 'redirection' => 3));
 
 			// nothing got - use cURL 
 	        if(is_wp_error($data) || 200 != wp_remote_retrieve_response_code($data) || empty($data['body'])) {
@@ -389,7 +389,18 @@ class easy_wp_thumbs extends ewpt_connect {
             return true;	
 		}
 		else {
-			$this->errors[] = 'WP image editor - '. esc_html__('Invalid image data', 'ewpt_ml');
+            $getimgsize = array();
+            if(!empty($data)) {
+                $tmpFile = tempnam(sys_get_temp_dir(), 'img');
+                file_put_contents($tmpFile, $data);
+
+                $getimgsize = @getimagesize($tmpFile);
+                unlink($tmpFile);
+            }
+            
+			$this->errors[] = 'WP image editor ('. _wp_image_editor_choose() .') - '. esc_html__('Invalid image data', 'ewpt_ml');
+            $this->errors[] = 'Image source: '. $img_src;
+            $this->errors[] = 'getimagesize(): '. wp_json_encode($getimgsize);
 			return false;
 		}
 	}
