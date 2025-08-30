@@ -50,19 +50,52 @@ class ewpt_editor_extension extends WP_Image_Editor_Imagick {
     /**
      * setup image data 
      */
-    public function ewpt_setup_img_data($guessed_mime = 'image/jpeg') {	
-        if(!function_exists('getimagesizefromstring')) {
-            $uri = 'data://application/octet-stream;base64,'. base64_encode($this->img_binary_data);
-            $data = @getimagesize($uri);
+    public function ewpt_setup_img_data() {
+        if($this->image instanceof Imagick) {
+            try {
+                $this->image->setIteratorIndex(0);
+
+                $width  = $this->image->getImageWidth();
+                $height = $this->image->getImageHeight();
+
+                if(function_exists('finfo_buffer')) {
+                    $finfo = new finfo(FILEINFO_MIME_TYPE);
+                    $mime  = $finfo->buffer($this->img_binary_data);
+                }
+                else {
+                    $mime = $this->image->getImageMimeType();
+                }
+
+                $data = array(
+                    0      => $width,
+                    1      => $height,
+                    'mime' => $mime
+                );
+            } catch (Exception $e) {
+                return 'Cannot setup media data with Imagick: ' . $e->getMessage();
+            }
         } 
         else {
-            $data = getimagesizefromstring($this->img_binary_data);	
-        }
+            // fallback su getimagesize*
+            if(!function_exists('getimagesizefromstring')) {
+                $uri = 'data://application/octet-stream;base64,'. base64_encode($this->img_binary_data);
+                $data = @getimagesize($uri);
+            } 
+            else {
+                $data = getimagesizefromstring($this->img_binary_data);	
+            }
 
+            if(!is_array($data)) {
+                return 'Cannot setup image data from getimagesizefromstring()';   
+            }
+        }
+        
         parent::update_size($data[0], $data[1]);
 
         $this->mime_type = $data['mime'];
         $this->pub_mime_type = $this->mime_type;
+        
+        return true;
     }
     
     

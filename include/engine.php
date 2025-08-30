@@ -280,7 +280,12 @@ class easy_wp_thumbs extends ewpt_connect {
 		$cache_fullpath = $this->cache_dir .'/'. $this->cache_img_name;
 		
 		// check for the image type
-		$supported_mimes = array('image/jpeg', 'image/png', 'image/gif', 'image/webp');
+		$supported_mimes = array('image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf');
+        
+        if($this->mime == 'application/pdf' && _wp_image_editor_choose() != "WP_Image_Editor_Imagick") {
+            $this->errors[] = esc_html__('To manage PDF you need to install Imagick on the server', 'ewpt_ml');
+			return false;
+        }
         if(ewpt_helpers::supports_avif()) {
             $supported_mimes[] = 'image/avif';   
         }
@@ -380,7 +385,13 @@ class easy_wp_thumbs extends ewpt_connect {
 		// check the resource and eventually uses the GD library
 		if($this->editor->ewpt_is_valid_resource() ) {
             
-			$this->editor->ewpt_setup_img_data();	
+			$response = $this->editor->ewpt_setup_img_data();
+            if($response !== true) {
+                $this->errors[] = $response;
+                return false;
+            }
+            
+            
 			$this->mime = $this->editor->pub_mime_type; // safe mime
             
             if(method_exists($this->editor, 'maybe_exif_rotate')) {
@@ -515,6 +526,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		// extension 
 		switch($this->mime) {
 			case 'image/webp' : 
+            case 'application/pdf' : 
                 $ext = '.webp'; 
                 break;
                 
@@ -563,6 +575,7 @@ class easy_wp_thumbs extends ewpt_connect {
 			'png'        => 'image/png',
             'avif'       => 'image/avif',
             'webp'       => 'image/webp',
+            'pdf'        => 'application/pdf',
 		);
 		$extensions = array_keys( $mime_types );
 		

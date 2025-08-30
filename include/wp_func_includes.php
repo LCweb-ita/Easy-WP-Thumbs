@@ -25,7 +25,6 @@ if(!function_exists('wp_upload_dir') || !function_exists('get_filesystem_method'
     }
 
 
-
     if(!function_exists('get_filesystem_method')) {
 
         // wp-admin/includes/file.php - for wp_filesys

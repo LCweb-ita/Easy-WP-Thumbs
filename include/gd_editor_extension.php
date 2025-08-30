@@ -92,11 +92,17 @@ class ewpt_editor_extension extends WP_Image_Editor_GD {
         else {
             $data = getimagesizefromstring($this->img_binary_data);	
         }
+        
+        if(!is_array($data)) {
+            return 'Cannot setup image data from getimagesizefromstring()';   
+        }
 
         parent::update_size($data[0], $data[1]);
 
         $this->mime_type = $data['mime'];
         $this->pub_mime_type = $this->mime_type;
+        
+        return true;
     }
 
     
