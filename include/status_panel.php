@@ -3,16 +3,12 @@
 
 /*
     usage:
-    
-    ewpt_status_panel::$multilang_key = '...'; (optional)
     echo ewpt_status_panel::get($wrap_with_form = false); // prints HTML code  
 */
 
 
 
 class ewpt_status_panel {
-    public static $multilang_key = 'ewpt_ml';
-        
     
     /*
      * Returns status panel code
@@ -46,7 +42,7 @@ class ewpt_status_panel {
 
             // erase cache
             const erase_cache = async function() {
-                if(!confirm("'. esc_attr__('Confirm cache files deletion?', self::$multilang_key) .'")) {
+                if(!confirm("'. esc_attr__('Confirm cache files deletion?', 'ewpt_ml') .'")) {
                     return false;    
                 } 
                 
@@ -89,7 +85,7 @@ class ewpt_status_panel {
             const setup = async function(step) {
                 const err_mess = 
                     `<div id="ewpt_message" class="error">
-                        <p>'. esc_html__('<strong>Server connection error</strong>, please check inserted values', self::$multilang_key) .'</p>
+                        <p>'. esc_html__('<strong>Server connection error</strong>, please check inserted values', 'ewpt_ml') .'</p>
                     </div>`;
                 
                 
@@ -316,7 +312,7 @@ class ewpt_status_panel {
                     wp_die();
                 } 
                 else {
-                    wp_die( esc_html__('Error creating the cache directory', self::$multilang_key) .'<br/><br/>');
+                    wp_die( esc_html__('Error creating the cache directory', 'ewpt_ml') .'<br/><br/>');
                 }
             }
         }
@@ -361,24 +357,24 @@ class ewpt_status_panel {
     
     // successful setup message
     private static function success_message($has_cache_files = false) {
-        $clean_cache_string = ($has_cache_files) ? ' <a id="ewpt_clean_cache_trig" href="javascript:void(0)">('. esc_html__('Clean cache', self::$multilang_key) .')</a>' : ''; 
+        $clean_cache_string = ($has_cache_files) ? ' <a id="ewpt_clean_cache_trig" href="javascript:void(0)">('. esc_html__('Clean cache', 'ewpt_ml') .')</a>' : ''; 
         $optimization = get_option('ewpt_optimization_mode', '');
         
         echo '
         <div class="wrap">
             <small class="alignright" data-ref="'. esc_attr(__FILE__) .'">v'. esc_html(EWPT_VER) .'</small>
-            <h2>Easy WP Thumbs - '. esc_html__('Connection Information', self::$multilang_key). '</h2>
+            <h2>Easy WP Thumbs - '. esc_html__('Connection Information', 'ewpt_ml'). '</h2>
             
-            <p>'. esc_html__('System properly set up!', self::$multilang_key) . $clean_cache_string .'</p>
+            <p>'. esc_html__('System properly set up!', 'ewpt_ml') . $clean_cache_string .'</p>
 
             <p>
                 <br/>
                 <select name="ewpt_optimization_mode" autocomplete="off">
-                    <option value="">'. esc_html__('No optimization', self::$multilang_key). '</option>
-                    <option value="webp" '. selected('webp', $optimization, false) .'>'. esc_html__('Create thumbnails in WEBP format', self::$multilang_key). '</option>';
+                    <option value="">'. esc_html__('No optimization', 'ewpt_ml'). '</option>
+                    <option value="webp" '. selected('webp', $optimization, false) .'>'. esc_html__('Create thumbnails in WEBP format', 'ewpt_ml'). '</option>';
         
                     if(ewpt_helpers::supports_avif()) {
-                        echo '<option value="avif" '. selected('avif', $optimization, false) .'>'. esc_html__('Create thumbnails in AVIF format', self::$multilang_key). '</option>';   
+                        echo '<option value="avif" '. selected('avif', $optimization, false) .'>'. esc_html__('Create thumbnails in AVIF format', 'ewpt_ml'). '</option>';   
                     }
         
                 echo '
@@ -407,16 +403,16 @@ class ewpt_status_panel {
 
         // check if is ready to operate
         if(!$ewpt->is_ready()) {
-            wp_die( esc_html__('Cache folder not found', self::$multilang_key));
+            wp_die( esc_html__('Cache folder not found', 'ewpt_ml'));
         }
 
         global $wp_filesystem;
         if(!$ewpt->cache_dir || strpos($ewpt->cache_dir, 'ewpt') === false) {
-            wp_die( esc_html__('wrong cache directory', self::$multilang_key));
+            wp_die( esc_html__('wrong cache directory', 'ewpt_ml'));
         }
 
         if(!$wp_filesystem->rmdir( $ewpt->cache_dir, true)) {
-            wp_die( esc_html__('Error deleting the cache files', self::$multilang_key));
+            wp_die( esc_html__('Error deleting the cache files', 'ewpt_ml'));
         }
 
         $_POST['ewpt_init'] = true;
