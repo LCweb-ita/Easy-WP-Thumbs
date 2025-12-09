@@ -10,6 +10,10 @@
 
 class ewpt_status_panel {
     
+    public static $multilang_key = '';
+    
+    
+    
     /*
      * Returns status panel code
      * @param $wrap_with_form - whether to wrap the code into a FORM HTML tag

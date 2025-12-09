@@ -1,6 +1,6 @@
 <?php
 /**
- * Easy WP thumbs v3.5.0
+ * Easy WP thumbs v4.0.0
  * NOTE: Designed for use with PHP version 5.2 and up. Requires at least WP 3.5
  * 
  * @author Luca Montanari (LCweb)
@@ -13,7 +13,7 @@
 
 // be sure ewpt has not been initialized yet
 if(!defined('EWPT_VER')) { 
-    define('EWPT_VER', '3.5.0');
+    define('EWPT_VER', '4.0.0');
     define('EWPT_ERROR_PREFIX', 'Easy WP Thumbs v'.EWPT_VER.' - '); 
 
 
@@ -127,12 +127,11 @@ if(!defined('EWPT_VER')) {
         (string)    a  - thumbnail's cropping center. Possible values: tl, t, tr, l, c, r, bl, b, br. c = center, t = top, b = bottom, r = right, l = left
         (int)       rs - resizing method: 1 = Resize and crop, 2 = Resize and add borders, 3 = Only resize 
         (string)    cc - background / borders color – use hexadecimal values
-        (array)     fx - effects applied to the image (1 = grayscale, 2 = blur)
         
         (string|bool) get_url_if_not_cached - whether to return remote thumb URL if image is not cached, to avoid page's opening slowdowns. Use false of the easy_wp_thumbs.php file URL       
      * @return (string) thumbnail URL or error message
      */
-    function easy_wp_thumb($img_src, $w_jolly = false, $h = false, $quality = 80, $align = 'c', $resize = 1, $canvas_col = 'FFFFFF', $fx = array(), $get_url_if_not_cached = false) {
+    function easy_wp_thumb($img_src, $w_jolly = false, $h = false, $quality = 80, $align = 'c', $resize = 1, $canvas_col = 'FFFFFF', $get_url_if_not_cached = false) {
         if(strpos($img_src, '%2F') !== false) {
             $img_src = urldecode($img_src);   
         }
@@ -145,7 +144,6 @@ if(!defined('EWPT_VER')) {
                 'q' 	=> $quality,
                 'a'		=> $align,
                 'cc'	=> $canvas_col,
-                'fx'	=> $fx,
                 'rs'	=> $resize,
                 'get_url_if_not_cached' => $get_url_if_not_cached,
             );

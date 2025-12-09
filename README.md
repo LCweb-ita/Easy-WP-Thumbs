@@ -41,7 +41,6 @@ Now you can create thumbnails:
                                           2 = Resize and add borders, 
                                           3 = Only resize 
     (string)    cc - background / borders color – use hexadecimal values
-    (array)     fx - effects applied to the image (1 = grayscale, 2 = blur)
     (string|bool) get_url_if_not_cached - whether to return remote thumb URL if image is not cached, 
                                           to avoid page's opening slowdowns. 
                                           Use false or the easy_wp_thumbs.php file URL
@@ -54,7 +53,6 @@ $params = array(
     'a' => (string),
     'rs' => (int),
     'cc' => (string),
-    'fx' => (array),
     'get_url_if_not_cached' => (string|bool)
 );
 echo '<img src="'. easy_wp_thumb($img_src, $params) .'" alt="my-thumb" />';
@@ -64,7 +62,7 @@ echo '<img src="'. easy_wp_thumb($img_src, $params) .'" alt="my-thumb" />';
 Timthumb-like, async thumbnail creation (useful for Javascript integrations):
 
 ```html
-<img src="SCRIPT-URL/easy_wp_thumbs.php?src=&w=&h=&q=&a=&rs=&cc=&fx=" />
+<img src="SCRIPT-URL/easy_wp_thumbs.php?src=&w=&h=&q=&a=&rs=&cc=" />
 ```
 
 ---

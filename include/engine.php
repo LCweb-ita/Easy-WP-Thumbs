@@ -229,9 +229,6 @@ class easy_wp_thumbs extends ewpt_connect {
 	// WP image editor object
 	private $editor = false;
 	
-	// cache filename part for the effects
-	private $fx_filename = '';
-	
 	// associative array of thumb parameters
 	private $params = array(
 		'w'		=> 150,	// (int) width
@@ -239,9 +236,8 @@ class easy_wp_thumbs extends ewpt_connect {
 		'q' 	=> 80, // (int) quality
 		'a'		=> 'c', // (string)alignment
 		'cc'	=> 'FFFFFF', // (string) canvas color for resizing with borders 
-		'fx'	=> array(),	// (array) effects
 		'rs'	=> 1,	// (bool) resize/crop
-        'get_url_if_not_cached' => false, // (false|string) whether to return remote thumb URL if image is not cached, to avoid page's opening slowdowns. Use false of the easy_wp_thumbs.php file URL       
+        'get_url_if_not_cached' => false, // (false|string) whether to return remote thumb URL if image is not cached, to avoid page's opening slowdowns. Use false or the easy_wp_thumbs.php file URL       
 	);
 	
     
@@ -264,7 +260,14 @@ class easy_wp_thumbs extends ewpt_connect {
 		if(!$this->setup_params($params) || !$this->check_source($img_src)) {
             return false;
         }
-		
+        
+
+        // local image - use WP tools to try avoiding any possible block
+        if(is_numeric($img_src) || (is_string($img_src) && !filter_var($img_src, FILTER_VALIDATE_URL))) {
+            return $this->wp_based_thumb($img_src, $stream);
+        }
+        
+        
 		// get the correct path/url
 		$img_src = $this->img_id_to_path($img_src);
         
@@ -322,10 +325,7 @@ class easy_wp_thumbs extends ewpt_connect {
         
 		// crop/resize the image
 		$this->resize_from_position();
-		
-		// apply effects
-		$this->editor->ewpt_img_fx( $this->params['fx'] );
-		
+        
 		// save the image
 		$img_contents = $this->image_contents();
         
@@ -436,12 +436,6 @@ class easy_wp_thumbs extends ewpt_connect {
             if(in_array($key, array('w', 'h', 'q', 'rs'))) {
                 $this->params[$key] = absint($params[$key]);	
             }
-            elseif($key == 'fx') {
-                if(is_array($params[$key])) {
-                    $params[$key] = implode(',', $params[$key]);
-                }
-                $this->params[$key] = $this->ewpt_fx_array($params[$key]);
-            }
             else {
                 $this->params[$key] = $params[$key];
             }
@@ -481,34 +475,7 @@ class easy_wp_thumbs extends ewpt_connect {
         
         return true;
 	}
-	
-    
-	
-	/**
-	  * Convert the numeric string into an fx array
-	  *
-	  * @param string $fx_string numeric effects string
-	  * @return array $pos array with the fx names
-	  */
-	private function ewpt_fx_array($fx_string) {
-		$fx_string = str_replace(' ', '', $fx_string);
-		if(strlen($fx_string) > 0) {$this->fx_filename = $fx_string . '_';}
 		
-		$fx_raw_arr = explode(',', $fx_string);
-		$fx_arr = array();
-		
-		foreach($fx_raw_arr as $raw_fx) {
-			if($raw_fx == '1') {
-                $fx_arr[] = 'grayscale';
-            }	
-			elseif($raw_fx == '2') {
-                $fx_arr[] = 'blur';
-            }	
-		}
-		
-		return $fx_arr;
-	}
-	
 	
 
 	/**
@@ -597,7 +564,6 @@ class easy_wp_thumbs extends ewpt_connect {
 	  */
 	private function cache_filename($img_name) {
 		$crypt_name = md5($img_name);
-		$fx_val = (is_array($this->params['fx'])) ? 1 : 0;
 		
 		// seo filename part
 		if(EWPT_SEO_CACHE_FILENAME && strlen($img_name) < 50) {
@@ -621,7 +587,6 @@ class easy_wp_thumbs extends ewpt_connect {
 			$this->params['rs'] . '_' .
 			$this->params['a'] . '_' .
 			$this->params['cc'] . '_' .
-			$this->fx_filename .
 			$crypt_name .
 			$seo_fn;
 
@@ -772,8 +737,7 @@ class easy_wp_thumbs extends ewpt_connect {
 		}
         
 		else {
-            $cache_fullpath = $this->cache_dir .'/'. $this->cache_img_name;
-            
+            $cache_fullpath = $this->cache_dir .'/'. $filename;
 			if(!$img_contents) {
                 $this->load_image($cache_fullpath); 
             }
@@ -785,4 +749,145 @@ class easy_wp_thumbs extends ewpt_connect {
             exit;
 		}
 	}
+    
+    
+    
+    /**
+	  * Try using the puriest WP systems to avoid blocks for local images
+      *
+	  * @param (string) $img_src - image id or path
+	  * @param (bool) $stream - flag to stream the image or not
+      *
+      * @return (mixed) the image URL, false in case of error or nothing in case of successful stream
+	  */
+    private function wp_based_thumb($img_src, $stream = false) {
+        if(is_numeric($img_src)) {
+            $path = get_attached_file($img_src);
+            
+            if(empty($path) || !file_exists($path)) {
+                $this->errors[] = esc_html__('no file linked to this ID', 'ewpt_ml');
+				return false;
+            }
+        }
+        else {
+            $path = $img_src;
+            if(!file_exists($path)) {
+                $this->errors[] = esc_html__('file not found', 'ewpt_ml');
+				return false;
+            }
+        }
+
+        // Prepare cache directory
+        $upload_dir = wp_upload_dir();
+        $cache_dir  = $this->cache_dir .'/';
+
+        if(!file_exists($cache_dir)) {
+            wp_mkdir_p($cache_dir);
+        }
+
+        // Generate the filename (comply with EWPT)
+        $extension  = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+        $orig_extension = $extension;
+        
+        // any optimization? (EWPT inherit)
+        $optimization = $GLOBALS['ewpt_optim_format'];
+        if(!empty($optimization)) {
+            $extension = $optimization;   
+        }
+        
+		$cache_name = $this->cache_filename($path);
+
+        if($optimization && $extension != $optimization) {
+            $orig_ext_cache_name = $cache_name .'.'. $orig_extension;
+        }
+        $cache_name .= '.'. $extension;
+        
+        $dest_path = $cache_dir . $cache_name;
+        if(isset($orig_ext_cache_name)) {
+            $orig_ext_dest_path = $cache_dir . $orig_ext_cache_name;
+        }
+        
+        // If already cached, return directly
+        if(file_exists($dest_path)) {
+            return $this->return_image($cache_name, $stream);
+        }
+        if(isset($orig_ext_dest_path) && file_exists($orig_ext_dest_path)) {
+            return $this->return_image($orig_ext_cache_name, $stream);
+        }
+
+        
+        // Create editor instance
+        $editor = wp_get_image_editor($path);
+        if(is_wp_error($editor)) {
+            $this->errors[] = esc_html__('WP editor cannot handle image', 'ewpt_ml');
+            return false;
+        }
+        
+        // the editor supports the optimization?
+        if($optimization && !$editor->supports_mime_type('image/'. $optimization)) {
+            $cache_name = $orig_ext_cache_name;
+            $extension = $orig_extension;
+            $dest_path = $orig_ext_dest_path;
+        }
+        
+
+        // Load original image size
+        $size = $editor->get_size();
+        $orig_w = $size['width'];
+        $orig_h = $size['height'];
+
+        // If only one dimension is provided, calculate the other
+        if($this->params['w'] === false && $this->params['h'] !== false) {
+            // Calculate width using the original aspect ratio
+            $ratio = $orig_w / $orig_h;
+            $this->params['w'] = intval($this->params['h'] * $ratio);
+        }
+        elseif($this->params['w'] !== false && $this->params['h'] === false) {
+            // Calculate height using the original aspect ratio
+            $ratio = $orig_h / $orig_w;
+            $this->params['h'] = intval($this->params['w'] * $ratio);
+        }
+
+        // Crop anchor mapping
+        $map = array(
+            'tl' => array(0,   0),
+            't'  => array(0.5, 0),
+            'tr' => array(1,   0),
+            'l'  => array(0,   0.5),
+            'c'  => array(0.5, 0.5),
+            'r'  => array(1,   0.5),
+            'bl' => array(0,   1),
+            'b'  => array(0.5, 1),
+            'br' => array(1,   1)
+        );
+        $anchor = isset($map[$this->params['a']]) ? $map[$this->params['a']] : $map['c'];
+
+        // Processing based on resize strategy
+        switch($this->params['rs']) {
+
+            case 1: // Resize & crop
+                $editor->resize($this->params['w'], $this->params['h'], $anchor);
+                break;
+
+            case 2: // Resize & add borders
+                $editor->resize($this->params['w'], $this->params['h'], false);
+                if(method_exists($editor, 'set_background_color')) {
+                    $editor->set_background_color($this->params['cc']);
+                }
+                break;
+
+            case 3: // Resize only
+                $editor->resize($this->params['w'], $this->params['h'], false);
+                break;
+        }
+
+        // Save final image (same extension as source)
+        $saved = $editor->save($dest_path, 'image/'. $extension, $this->params['q']);
+        if(is_wp_error($saved)) {
+            $this->errors[] = esc_html__('error creating the thumb through WP', 'ewpt_ml');
+            return false;
+        }
+        
+        return $this->return_image($cache_name, $stream);
+    }
 }
