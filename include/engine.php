@@ -862,6 +862,9 @@ class easy_wp_thumbs extends ewpt_connect {
         );
         $anchor = isset($map[$this->params['a']]) ? $map[$this->params['a']] : $map['c'];
 
+        
+        add_filter('image_resize_dimensions', array($this, 'enable_wpt_upscaler'), 9999, 6);
+        
         // Processing based on resize strategy
         switch($this->params['rs']) {
 
@@ -888,6 +891,47 @@ class easy_wp_thumbs extends ewpt_connect {
             return false;
         }
         
+        
+        remove_filter('image_resize_dimensions', array($this, 'enable_wpt_upscaler'), 9999, 6);
         return $this->return_image($cache_name, $stream);
     }
+    
+    
+    
+    /* Allow WordPress to upscale images, for $this->wp_based_thumb() */
+    public function enable_wpt_upscaler($payload, $orig_w, $orig_h, $dest_w, $dest_h, $crop) {
+        if(!$crop || !$dest_w || !$dest_h) {
+            return null;
+        }
+
+        // fattore di scala: riempi sempre il box
+        $scale = max(
+            $dest_w / $orig_w,
+            $dest_h / $orig_h
+        );
+
+        // area sorgente da ritagliare (in coordinate ORIGINALI)
+        $src_w = (int)round($dest_w / $scale);
+        $src_h = (int)round($dest_h / $scale);
+
+        // sicurezza
+        if($src_w > $orig_w) {
+            $src_w = $orig_w;
+        }
+        if($src_h > $orig_h) {
+            $src_h = $orig_h;
+        }
+
+        // crop centrato (coerente col tuo 'c')
+        $src_x = (int)round(($orig_w - $src_w) / 2);
+        $src_y = (int)round(($orig_h - $src_h) / 2);
+
+        return array(
+            0, 0,
+            $src_x, $src_y,
+            (int) $dest_w, (int) $dest_h,
+            $src_w, $src_h
+        );
+    }
+
 }
