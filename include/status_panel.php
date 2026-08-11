@@ -241,7 +241,7 @@ class ewpt_status_panel {
 
     // check with the wp filesystem - executed via AJAX
     public static function status_check($force_direct = false) {
-        if(!isset($_POST['ewpt_nonce']) || !wp_verify_nonce($_POST['ewpt_nonce'], 'ewpt_nonce')) {
+        if(!isset($_POST['ewpt_nonce']) || !wp_verify_nonce($_POST['ewpt_nonce'], 'ewpt_nonce') || !current_user_can('manage_options')) {
             wp_die('Cheating?');
         };
 
@@ -394,7 +394,7 @@ class ewpt_status_panel {
     
     // emptyes cache folder - ajax handler
     public static function erase_cache($fs_method = 'auto') {
-        if(!isset($_POST['ewpt_nonce']) || !wp_verify_nonce($_POST['ewpt_nonce'], 'ewpt_nonce')) {
+        if(!isset($_POST['ewpt_nonce']) || !wp_verify_nonce($_POST['ewpt_nonce'], 'ewpt_nonce') || !current_user_can('manage_options')) {
             wp_die('Cheating?');
         };
 
@@ -430,7 +430,7 @@ class ewpt_status_panel {
     
     // emptyes cache folder - ajax handler
     public static function update_optim_mode() {
-        if(!isset($_POST['ewpt_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['ewpt_nonce'])), 'ewpt_nonce')) {
+        if(!isset($_POST['ewpt_nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['ewpt_nonce'])), 'ewpt_nonce') || !current_user_can('manage_options')) {
             wp_die('Cheating?');
         };
 

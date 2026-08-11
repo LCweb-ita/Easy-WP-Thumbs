@@ -194,13 +194,13 @@ class ewpt_connect {
             <ul>';
 			
 			foreach($this->errors as $error) {
-				$html .= '<li>'.$error.'</li>';	
+				$html .= '<li>'. esc_html($error) .'</li>';	
 			}
 			
 			$html .= '
             </ul>
 			<hr/>
-            <small>version '.EWPT_VER.'</small>';
+            <small>version '. EWPT_VER .'</small>';
 			
 			return $html ;
 		}
@@ -410,7 +410,7 @@ class easy_wp_thumbs extends ewpt_connect {
             }
             
 			$this->errors[] = 'WP image editor ('. _wp_image_editor_choose() .') - '. esc_html__('Invalid image data', 'ewpt_ml');
-            $this->errors[] = 'Image source: '. $img_src;
+            $this->errors[] = 'Image source: '. esc_html($img_src);
             $this->errors[] = 'getimagesize(): '. wp_json_encode($getimgsize);
 			return false;
 		}
@@ -770,11 +770,14 @@ class easy_wp_thumbs extends ewpt_connect {
             }
         }
         else {
-            $path = $img_src;
-            if(!file_exists($path)) {
+            $real_path = realpath($img_src);
+            $real_root = realpath(ABSPATH);
+
+            if(!$real_path || !$real_root || strpos($real_path, $real_root) !== 0) {
                 $this->errors[] = esc_html__('file not found', 'ewpt_ml');
 				return false;
             }
+            $path = $real_path;
         }
 
         // Prepare cache directory
