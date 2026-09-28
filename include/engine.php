@@ -348,7 +348,15 @@ class easy_wp_thumbs extends ewpt_connect {
 		
 		// get data - url case
 		if(filter_var($img_src, FILTER_VALIDATE_URL) || strpos( str_replace('https://', 'http://', strtolower($img_src)), 'http://') !== false) {
-			$data = wp_remote_get($img_src, array('timeout' => 7, 'redirection' => 3));
+			//$data = wp_remote_get($img_src, array('timeout' => 7, 'redirection' => 3));
+            
+            $data = wp_remote_get($img_src, array(
+                'timeout'     => 7,
+                'redirection' => 3,
+                'headers'     => array(
+                    'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+                ),
+            ));
 
 			// nothing got - use cURL 
 	        if(is_wp_error($data) || 200 != wp_remote_retrieve_response_code($data) || empty($data['body'])) {
@@ -771,11 +779,27 @@ class easy_wp_thumbs extends ewpt_connect {
         }
         else {
             $real_path = realpath($img_src);
-            $real_root = realpath(ABSPATH);
 
-            if(!$real_path || !$real_root || strpos($real_path, $real_root) !== 0) {
+            // build list of allowed base directories
+            $allowed_roots = array_filter(array(
+                realpath(ABSPATH),
+                defined('WP_CONTENT_DIR') ? realpath(WP_CONTENT_DIR) : false,
+                realpath(wp_upload_dir()['basedir']),
+            ));
+
+            $is_allowed = false;
+            if ($real_path) {
+                foreach ($allowed_roots as $root) {
+                    if ($root && strpos($real_path, $root) === 0) {
+                        $is_allowed = true;
+                        break;
+                    }
+                }
+            }
+
+            if (!$real_path || !$is_allowed) {
                 $this->errors[] = esc_html__('file not found', 'ewpt_ml');
-				return false;
+                return false;
             }
             $path = $real_path;
         }
