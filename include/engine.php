@@ -350,36 +350,65 @@ class easy_wp_thumbs extends ewpt_connect {
 		if(filter_var($img_src, FILTER_VALIDATE_URL) || strpos( str_replace('https://', 'http://', strtolower($img_src)), 'http://') !== false) {
 			//$data = wp_remote_get($img_src, array('timeout' => 7, 'redirection' => 3));
             
-            $data = wp_remote_get($img_src, array(
+            // only http/https sources - avoid local files reading
+            if(!in_array(strtolower((string)parse_url($img_src, PHP_URL_SCHEME)), array('http', 'https'))) {
+                $this->errors[] = esc_html__('Image source not allowed', 'ewpt_ml');
+                return false;
+            }
+            $is_dev_site = $this->is_dev_site();
+            
+            $args = array(
                 'timeout'     => 7,
                 'redirection' => 3,
                 'headers'     => array(
                     'user-agent' => 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
                 ),
-            ));
+            );
+            
+            // public websites - avoid fetching from internal network hosts (SSRF), also on redirects
+            $data = ($is_dev_site) ? wp_remote_get($img_src, $args) : wp_safe_remote_get($img_src, $args);
+            
 
 			// nothing got - use cURL 
-	        if(is_wp_error($data) || 200 != wp_remote_retrieve_response_code($data) || empty($data['body'])) {
-				$followlocation = (!ini_get('open_basedir') && !ini_get('safe_mode')) ? true : false;
-                
-                $ch = curl_init();
-				curl_setopt($ch, CURLOPT_AUTOREFERER, true);
-				curl_setopt($ch, CURLOPT_HEADER, 0);
-				curl_setopt($ch, CURLOPT_USERAGENT, true);
-				curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-				curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-				curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
-				curl_setopt($ch, CURLOPT_MAXREDIRS, 3);
-				curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
-				curl_setopt($ch, CURLOPT_URL, $img_src);
-				curl_setopt($ch, CURLOPT_FOLLOWLOCATION, $followlocation);
+            if((is_wp_error($data) || 200 != wp_remote_retrieve_response_code($data) || empty($data['body'])) && ($is_dev_site || wp_http_validate_url($img_src))) {
+				$fetch_url = $img_src;
+				$redirects = 0;
 				
-				$data = curl_exec($ch);
-				$mime = curl_getinfo($ch, CURLINFO_CONTENT_TYPE);
-				curl_close($ch);	
+				// redirects are followed manually, to validate every target
+				do {
+					$ch = curl_init();
+					curl_setopt($ch, CURLOPT_AUTOREFERER, true);
+					curl_setopt($ch, CURLOPT_HEADER, 0);
+                    curl_setopt($ch, CURLOPT_USERAGENT, $args['headers']['user-agent']);
+					curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+					curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+					curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+					curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 3);
+					curl_setopt($ch, CURLOPT_URL, $fetch_url);
+					curl_setopt($ch, CURLOPT_PROTOCOLS, CURLPROTO_HTTP | CURLPROTO_HTTPS);
+					curl_setopt($ch, CURLOPT_FOLLOWLOCATION, false);
+					
+					$data = curl_exec($ch);
+					$next_url = (in_array((int)curl_getinfo($ch, CURLINFO_HTTP_CODE), array(301, 302, 303, 307, 308))) ? curl_getinfo($ch, CURLINFO_REDIRECT_URL) : false;
+					curl_close($ch);
+					
+					if($next_url) {
+						$redirects++;
+						
+						if($redirects > 3 || !in_array(strtolower((string)parse_url($next_url, PHP_URL_SCHEME)), array('http', 'https')) || (!$is_dev_site && !wp_http_validate_url($next_url))) {
+							$data = '';
+							break;
+						}
+						$fetch_url = $next_url;
+					}
+				} 
+				while($next_url);
 	        }
-			else {
+			elseif(!is_wp_error($data)) {
 				$data = $data['body'];	
+			}
+			else {
+				$data = '';
 			}
 		}
         
@@ -622,6 +651,17 @@ class easy_wp_thumbs extends ewpt_connect {
 		return $img_src;
 	}
 
+    
+    
+    /**
+	  * Whether the website runs locally (localhost, private network) - there internal hosts can be reached
+	  * @return (bool)
+	  */
+	private function is_dev_site() {
+		$ip = gethostbyname((string)parse_url(site_url(), PHP_URL_HOST));
+		return (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) ? false : true;
+	}
+    
 	
     
 	/**
